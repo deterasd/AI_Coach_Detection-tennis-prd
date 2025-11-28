@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-10-16T08:52:55.600149",
+  "results": {
+    "prerequisites": {
+      "input_videos": true,
+      "models": true,
+      "ffmpeg": true,
+      "gpu": true
+    },
+    "video_reading": true,
+    "ai_models": true,
+    "video_segmentation": true,
+    "trajectory_analysis": true,
+    "gpt_feedback": true,
+    "complete_pipeline": true
+  },
+  "summary": {
+    "total_tests": 7,
+    "passed_tests": 7,
+    "success_rate": 1.0
+  }
+}

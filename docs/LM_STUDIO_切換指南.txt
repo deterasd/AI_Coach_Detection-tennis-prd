@@ -1,0 +1,134 @@
+# ===========================================
+# LM Studio 切換指南
+# ===========================================
+
+## 📋 要從 GPT 切換到 LM Studio，需要修改的檔案：
+
+### 1️⃣ remote_lm_studio_config.py
+檔案位置: c:\Users\user\Documents\AI_Coach_Detection-prd\remote_lm_studio_config.py
+
+需要修改的內容：
+```python
+REMOTE_LM_STUDIO_URL = "https://your-new-ngrok-url.ngrok-free.dev/v1"
+```
+
+步驟：
+1. 在新電腦啟動 LM Studio
+2. 載入模型（例如：google/gemma-3n-e4b）
+3. 啟動 Local Server（預設 port 1234）
+4. 執行 ngrok: `ngrok http 1234`
+5. 複製 ngrok 提供的網址（例如：https://abc123.ngrok-free.dev）
+6. 將網址填入上面的配置，記得加上 /v1
+
+
+### 2️⃣ single_feedback/model_config.py（如果模型名稱不同）
+檔案位置: c:\Users\user\Documents\AI_Coach_Detection-prd\single_feedback\model_config.py
+
+需要修改的內容：
+```python
+MODEL = "實際載入的模型名稱"
+```
+
+如何確認模型名稱：
+1. 執行測試: `python -c "from openai import OpenAI; client = OpenAI(base_url='https://your-ngrok-url.ngrok-free.dev/v1', api_key='lm-studio'); print(client.models.list())"`
+2. 查看輸出的模型 ID
+3. 將模型 ID 填入 MODEL 變數
+
+
+### 3️⃣ ai_config.py（選用：如果要強制使用 LM Studio）
+檔案位置: c:\Users\user\Documents\AI_Coach_Detection-prd\ai_config.py
+
+目前系統會自動偵測和切換：
+- 優先使用 LM Studio
+- 如果 LM Studio 無法連接，自動切換到 OpenAI
+
+如果要強制只使用 LM Studio（連接失敗時不切換）：
+在 ai_config.py 中加入：
+```python
+USE_REMOTE_LM_STUDIO = True
+FALLBACK_TO_OPENAI = False  # 停用自動切換
+```
+
+
+## 🧪 測試步驟
+
+### 測試 1: 驗證 API 連接
+```powershell
+python test_lm_studio_feedback.py
+```
+應該看到：
+- ✅ API 連接成功
+- ✅ 回饋生成成功
+- ⏱️ 耗時約 1-2 秒
+
+### 測試 2: 驗證完整流程
+```powershell
+python test_gpt_feedback_quick.py
+```
+應該看到：
+- ✅ 已連接到 LM Studio 服務器
+- 💬 生成的中文建議
+- ⏱️ 耗時約 2 秒
+
+### 測試 3: 執行完整分析
+```powershell
+python trajector_processing_simple_test.py
+```
+在步驟 11 應該看到：
+- ✅ GPT 反饋生成成功
+- 💬 完整的動作建議
+
+
+## 📊 快速檢查表
+
+使用前請確認：
+- [ ] LM Studio 已啟動並載入模型
+- [ ] Local Server 已啟動（可訪問 http://localhost:1234/v1）
+- [ ] ngrok 已執行並獲得網址
+- [ ] remote_lm_studio_config.py 中的網址已更新
+- [ ] 模型名稱正確（不包含版本後綴如 :2）
+- [ ] 測試腳本運行成功
+
+
+## 🔧 常見問題
+
+### Q: 如何查看目前使用的是 LM Studio 還是 OpenAI？
+A: 執行任何使用 AI 的腳本，會在開頭顯示：
+   - "✅ 已連接到 LM Studio 服務器" = 使用 LM Studio
+   - "✅ 已連接到 OpenAI API" = 使用 OpenAI
+
+### Q: LM Studio 連接失敗怎麼辦？
+A: 系統會自動切換到 OpenAI API（如果有配置金鑰）
+   檢查：
+   1. LM Studio 是否啟動
+   2. ngrok 網址是否正確
+   3. 防火牆是否允許連接
+
+### Q: 如何切換回 OpenAI？
+A: 方法 1: 停止 LM Studio 或 ngrok，系統會自動切換
+   方法 2: 修改 remote_lm_studio_config.py 中的網址為錯誤值
+   方法 3: 在 ai_config.py 中設定 use_lm_studio = False
+
+
+## 📁 修改檔案總結
+
+必改（切換電腦時）：
+1. remote_lm_studio_config.py - 更新 ngrok URL
+
+可能需要改（模型不同時）：
+2. single_feedback/model_config.py - 更新模型名稱
+
+選用（要強制使用 LM Studio 時）：
+3. ai_config.py - 停用自動切換
+
+
+## ✅ 目前配置狀態
+
+您目前的配置已經設定為：
+- LM Studio URL: https://letisha-stemless-ray.ngrok-free.dev/v1
+- 模型: google/gemma-3n-e4b
+- 優化參數: temperature=0.5, max_tokens=100
+- 自動切換: 啟用（LM Studio → OpenAI）
+
+如果這個 ngrok 網址仍然有效且連接到正確的 LM Studio，
+您不需要修改任何檔案，可以直接使用！
