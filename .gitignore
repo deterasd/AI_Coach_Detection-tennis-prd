@@ -70,3 +70,15 @@ video_segments_output/
 測試影片存放/
 tennis_analysis_sessions/
 
+
+# Force include specific folders requested by user
+!trajectory/
+!trajectory/**
+!play_records/
+!play_records/**
+!output/
+!output/**
+!input_videos/
+!input_videos/**
+!binocular_correction/
+!binocular_correction/**
