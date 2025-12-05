@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>step1. 3D 重建誤差驗證儀表板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --card-bg: rgba(20, 20, 20, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 35%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15) 0%, transparent 35%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 24px 32px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px;
+            border: 1px solid var(--card-border);
+            box-shadow: var(--glass-shadow);
+        }
+
+        h1 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.75rem;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #fff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h1 span {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            position: relative;
+        }
+        
+        h1 span::after {
+            content: 'BETA';
+            position: absolute;
+            top: -8px;
+            right: -30px;
+            font-size: 0.6rem;
+            background: var(--accent-gradient);
+            -webkit-text-fill-color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .upload-section {
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* New Styles for Comprehensive View */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--accent-gradient);
+            opacity: 0.7;
+        }
+
+        .summary-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 60px 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-main);
+        }
+
+        .section-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 24px;
+            background: var(--accent-secondary);
+            border-radius: 2px;
+        }
+
+        .data-table-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            overflow-x: auto;
+            margin-bottom: 40px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 16px;
+            color: var(--text-sub);
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .status-success { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
+        .status-warning { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
+        .status-danger { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.2); }
+        .status-neutral { background: rgba(156, 163, 175, 0.15); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.2); }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .two-col-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px;
+        }
+
+        .file-upload-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 10px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-upload-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .file-upload-btn span {
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 28px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .card-header {
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card-title::before {
+            content: '';
+            display: block;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        .chart-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .info-section {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .info-item {
+            display: grid;
+            grid-template-columns: 85px 1fr;
+            gap: 16px;
+            align-items: baseline;
+        }
+
+        .info-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 4px 0;
+            text-align: center;
+            border-radius: 6px;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-desc { background: rgba(255, 255, 255, 0.08); color: var(--text-sub); }
+        .badge-criteria { background: rgba(251, 191, 36, 0.1); color: var(--warning); border: 1px solid rgba(251, 191, 36, 0.2); }
+        .badge-params { background: rgba(99, 102, 241, 0.1); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2); }
+
+        .info-text {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .text-criteria { color: #e5e7eb; font-weight: 500; }
+        .text-params { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 20px; text-align: center; padding: 20px; }
+            .grid { grid-template-columns: 1fr; }
+            .info-item { grid-template-columns: 1fr; gap: 6px; }
+            .info-badge { width: fit-content; padding: 4px 10px; }
+        }
+
+        /* Form Controls Styling */
+        .control-group {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-label {
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .styled-input, .styled-select {
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .styled-input:focus, .styled-select:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            background: rgba(30, 30, 30, 0.9);
+        }
+
+        .styled-select option {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 8px;
+        }
+
+        .result-count {
+            margin-left: auto;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>AI Coach <span>3D 重建誤差驗證</span></h1>
+        <div class="upload-section">
+            <label for="fileInput" class="file-upload-btn">📂 選擇 JSON 分析檔案</label>
+            <input type="file" id="fileInput" accept=".json">
+        </div>
+    </header>
+
+    <!-- Summary Stats -->
+    <div id="summaryStats" class="summary-grid">
+        <!-- Injected by JS -->
+    </div>
+
+    <h2 class="section-title">📊 視覺化圖表分析</h2>
+    <div class="grid" id="dashboardGrid">
+        <!-- Cards will be injected here by JS -->
+    </div>
+
+    <h2 class="section-title">📋 詳細數據分析</h2>
+    
+    <div class="two-col-grid">
+        <div>
+            <h3 style="margin-bottom: 16px; color: var(--text-sub);">各關節點誤差統計 (Keypoint Stats)</h3>
+            <div class="data-table-container">
+                <table id="keypointTable">
+                    <thead>
+                        <tr>
+                            <th>關節點</th>
+                            <th>Side (Mean±Std)</th>
+                            <th>45° (Mean±Std)</th>
+                            <th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div>
+            <h3 style="margin-bottom: 16px; color: var(--text-sub);">異常嚴重程度分佈 (Severity Breakdown)</h3>
+            <div class="summary-card" style="height: auto; margin-bottom: 24px;">
+                <div id="severityStats"></div>
+            </div>
+
+            <h3 style="margin-bottom: 16px; color: var(--text-sub);">連續異常區段 (Continuous Segments)</h3>
+            <div class="data-table-container">
+                <table id="segmentsTable">
+                    <thead>
+                        <tr>
+                            <th>Frame Range</th>
+                            <th>Duration</th>
+                            <th>Keypoint</th>
+                            <th>Camera</th>
+                            <th>Mean Err</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <h3 style="margin-bottom: 16px; color: var(--text-sub);">嚴重異常列表 (Severe Anomalies)</h3>
+    
+    <!-- Filter Controls -->
+    <div class="control-group">
+        <div class="control-item">
+            <label class="control-label">部位:</label>
+            <select id="filterKeypoint" class="styled-select">
+                <option value="all">全部 (All)</option>
+            </select>
+        </div>
+        <div class="control-item">
+            <label class="control-label">相機:</label>
+            <select id="filterCamera" class="styled-select">
+                <option value="all">全部 (All)</option>
+                <option value="side">Side</option>
+                <option value="45">45°</option>
+            </select>
+        </div>
+        <div class="control-item">
+            <label class="control-label">最小誤差 (px):</label>
+            <input type="number" id="filterMinError" value="40" min="0" step="1" class="styled-input" style="width: 80px;">
+        </div>
+        <div class="result-count">
+            共 <span id="filterCount" style="color: var(--accent-primary); font-weight: bold;">0</span> 筆資料
+        </div>
+    </div>
+
+    <div class="data-table-container" style="max-height: 600px; overflow-y: auto;">
+        <table id="severeTable">
+            <thead>
+                <tr>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Frame</th>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Keypoint</th>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Camera</th>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Error (px)</th>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Depth (mm)</th>
+                    <th style="position: sticky; top: 0; background: #1f2937; z-index: 10;">Severity</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    // Chart.js Global Defaults for Premium Dark Theme
+    Chart.defaults.color = '#9ca3af';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    Chart.defaults.font.family = "'Inter', 'Microsoft JhengHei', sans-serif";
+    Chart.defaults.font.size = 11;
+    
+    // Tooltip styling
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(20, 20, 20, 0.9)';
+    Chart.defaults.plugins.tooltip.titleColor = '#f3f4f6';
+    Chart.defaults.plugins.tooltip.bodyColor = '#d1d5db';
+    Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.displayColors = true;
+
+    const fileInput = document.getElementById('fileInput');
+    const dashboardGrid = document.getElementById('dashboardGrid');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                renderDashboard(data);
+            } catch (error) {
+                alert('解析 JSON 失敗，請確認檔案格式正確。');
+                console.error(error);
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    // Auto-load from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const src = urlParams.get('src');
+    if (src) {
+        fetch(src)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                renderDashboard(data);
+            })
+            .catch(err => {
+                console.error('Error loading JSON from URL:', err);
+                alert('無法從 URL 載入 JSON 檔案: ' + src);
+            });
+    }
+
+    function createCardHTML(id, title, description, criteria, params) {
+        return `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">${title}</h3>
+                </div>
+                <div class="chart-wrapper">
+                    <div class="chart-container">
+                        <canvas id="${id}"></canvas>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <div class="info-item">
+                        <div class="info-badge badge-desc">說明</div>
+                        <p class="info-text">${description}</p>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-badge badge-criteria">判斷標準</div>
+                        <p class="info-text text-criteria">${criteria}</p>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-badge badge-params">參數</div>
+                        <p class="info-text text-params">${params}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function getStatusBadge(value, type) {
+        let status = 'neutral';
+        let text = 'Unknown';
+        
+        if (type === 'error') {
+            if (value < 5) { status = 'success'; text = 'Excellent'; }
+            else if (value < 10) { status = 'success'; text = 'Good'; }
+            else if (value < 20) { status = 'warning'; text = 'Moderate'; }
+            else { status = 'danger'; text = 'Poor'; }
+        } else if (type === 'quality') {
+            if (value === '優秀' || value === 'Excellent') { status = 'success'; text = value; }
+            else if (value === '良好' || value === 'Good') { status = 'success'; text = value; }
+            else if (value === '可接受' || value === 'Acceptable') { status = 'warning'; text = value; }
+            else { status = 'danger'; text = value; }
+        }
+        
+        return `<span class="status-badge status-${status}">${text}</span>`;
+    }
+
+    function renderDashboard(data) {
+        dashboardGrid.innerHTML = ''; // Clear previous charts
+        
+        // --- 1. Populate Summary Stats ---
+        const statsContainer = document.getElementById('summaryStats');
+        const gs = data.global_stats;
+        
+        const summaryItems = [
+            { label: '整體平均誤差', value: `${gs.overall_mean.toFixed(2)} px`, sub: `Side: ${gs.side_mean.toFixed(2)} | 45°: ${gs['45_mean'].toFixed(2)}` },
+            { label: '品質等級', value: gs.quality_level, sub: 'System Health' },
+            { label: '異常值數量', value: gs.outlier_count_side + gs.outlier_count_45, sub: `Rate: ${((gs.outlier_rate_side + gs.outlier_rate_45)/2).toFixed(1)}%` },
+            { label: '相機偏差', value: `${Math.abs(gs.camera_bias).toFixed(2)} px`, sub: gs.camera_bias > 0 ? 'Side > 45°' : '45° > Side' }
+        ];
+
+        statsContainer.innerHTML = summaryItems.map(item => `
+            <div class="summary-card">
+                <div class="summary-label">${item.label}</div>
+                <div class="summary-value">${item.value}</div>
+                <div class="summary-label" style="opacity: 0.7; font-size: 0.8rem;">${item.sub}</div>
+            </div>
+        `).join('');
+
+
+        // --- 2. Populate Keypoint Table ---
+        const kpTableBody = document.querySelector('#keypointTable tbody');
+        kpTableBody.innerHTML = data.keypoint_errors.map(kp => `
+            <tr>
+                <td>${kp.name}</td>
+                <td>${kp.side_mean.toFixed(2)} <span style="opacity:0.5">±${kp.side_std.toFixed(2)}</span></td>
+                <td>${kp['45_mean'].toFixed(2)} <span style="opacity:0.5">±${kp['45_std'].toFixed(2)}</span></td>
+                <td>${getStatusBadge(kp.avg_error, 'error')}</td>
+            </tr>
+        `).join('');
+
+
+        // --- 3. Populate Severity Stats ---
+        const sevContainer = document.getElementById('severityStats');
+        if (data.detailed_anomalies && data.detailed_anomalies.summary) {
+            const sum = data.detailed_anomalies.summary;
+            const total = sum.total_count;
+            
+            const sevItems = [
+                { label: '嚴重 (>40px)', count: sum.severe_count, color: '#f87171' },
+                { label: '中等 (30-40px)', count: sum.moderate_count, color: '#fb923c' },
+                { label: '輕微 (20-30px)', count: sum.mild_count, color: '#fbbf24' }
+            ];
+            
+            sevContainer.innerHTML = sevItems.map(item => {
+                const pct = total > 0 ? (item.count / total * 100) : 0;
+                return `
+                    <div style="margin-bottom: 12px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:4px;">
+                            <span>${item.label}</span>
+                            <span style="font-family:'JetBrains Mono'">${item.count} (${pct.toFixed(1)}%)</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${pct}%; background: ${item.color}"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            sevContainer.innerHTML = '<div style="padding:10px; color:var(--text-sub)">無異常數據</div>';
+        }
+
+
+        // --- 4. Populate Continuous Segments ---
+        const segTableBody = document.querySelector('#segmentsTable tbody');
+        if (data.detailed_anomalies && data.detailed_anomalies.continuous_segments) {
+            segTableBody.innerHTML = data.detailed_anomalies.continuous_segments.slice(0, 10).map(seg => `
+                <tr>
+                    <td>${seg.start_frame}-${seg.end_frame}</td>
+                    <td>${seg.duration} f</td>
+                    <td>${seg.keypoint}</td>
+                    <td>${seg.camera}</td>
+                    <td>${seg.mean_error.toFixed(1)} px</td>
+                </tr>
+            `).join('');
+        } else {
+            segTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-sub)">無連續異常區段</td></tr>';
+        }
+
+
+        // --- 5. Populate Severe Anomalies Table (With Filter Logic) ---
+        // Store anomalies globally for filtering
+        window.allAnomaliesData = [];
+        if (data.detailed_anomalies && data.detailed_anomalies.all_anomalies) {
+            window.allAnomaliesData = data.detailed_anomalies.all_anomalies;
+        }
+
+        // Populate Keypoint Filter
+        const kpFilter = document.getElementById('filterKeypoint');
+        kpFilter.innerHTML = '<option value="all">全部 (All)</option>';
+        if (data.keypoint_errors) {
+            data.keypoint_errors.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k.name;
+                opt.textContent = k.name;
+                kpFilter.appendChild(opt);
+            });
+        }
+
+        // Filter Function
+        function filterAndRenderTable() {
+            const fKp = document.getElementById('filterKeypoint').value;
+            const fCam = document.getElementById('filterCamera').value;
+            const minError = parseFloat(document.getElementById('filterMinError').value) || 0;
+            
+            let filtered = window.allAnomaliesData.filter(a => {
+                if (fKp !== 'all' && a.keypoint !== fKp) return false;
+                if (fCam !== 'all' && a.camera !== fCam) return false;
+                if (a.error < minError) return false;
+                return true;
+            });
+
+            // Sort by error desc
+            filtered.sort((a, b) => b.error - a.error);
+
+            // Update Count
+            document.getElementById('filterCount').textContent = filtered.length;
+
+            const tbody = document.querySelector('#severeTable tbody');
+            if (filtered.length > 0) {
+                // Limit to 500 rows for performance if too many
+                const displayData = filtered.slice(0, 500);
+                
+                tbody.innerHTML = displayData.map(a => {
+                    let badgeClass = 'status-neutral';
+                    if (a.severity === 'severe') badgeClass = 'status-danger';
+                    else if (a.severity === 'moderate') badgeClass = 'status-warning';
+                    else if (a.severity === 'mild') badgeClass = 'status-success'; // Yellowish
+
+                    return `
+                        <tr>
+                            <td>${a.frame}</td>
+                            <td>${a.keypoint}</td>
+                            <td>${a.camera}</td>
+                            <td style="color:${a.severity === 'severe' ? '#f87171' : 'inherit'}; font-weight:bold;">${a.error.toFixed(2)}</td>
+                            <td>${a.depth_z.toFixed(1)}</td>
+                            <td><span class="status-badge ${badgeClass}">${a.severity}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                if (filtered.length > 500) {
+                    tbody.innerHTML += `<tr><td colspan="6" style="text-align:center; color:var(--text-sub)">... 還有 ${filtered.length - 500} 筆資料 (僅顯示前 500 筆) ...</td></tr>`;
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-sub)">無符合條件的異常資料</td></tr>';
+            }
+        }
+
+        // Attach Listeners
+        document.getElementById('filterKeypoint').addEventListener('change', filterAndRenderTable);
+        document.getElementById('filterCamera').addEventListener('change', filterAndRenderTable);
+        document.getElementById('filterMinError').addEventListener('input', filterAndRenderTable);
+
+        // Initial Render
+        filterAndRenderTable();
+
+
+        // --- 6. Render Charts (Existing Logic) ---
+        // Define the 8 blocks with updated criteria based on step1_charts.html
+        const blocks = [
+            { 
+                id: 'chart1', 
+                title: '整體誤差統計 (Global Stats)', 
+                desc: '顯示整體系統的誤差統計指標，用於評估系統整體性能。', 
+                criteria: 'Mean < 10px 為優秀；Max/Median < 3 表示數據穩定',
+                params: 'X軸: 統計指標 | Y軸: 誤差值 (Pixels)' 
+            },
+            { 
+                id: 'chart2', 
+                title: '時序穩定性 (Temporal Stability)', 
+                desc: '顯示每一影格的平均重投影誤差，可找出誤差異常的時間區間。', 
+                criteria: '少數影格異常可插值修復；連續多影格異常表示該區段數據不可靠',
+                params: 'X軸: 影格 (Frame) | Y軸: 誤差值 (Pixels)' 
+            },
+            { 
+                id: 'chart3', 
+                title: '關鍵點誤差分佈 (Keypoint Errors)', 
+                desc: '顯示各關節點的平均重投影誤差，長條越短表示該關節點的 3D 重建品質越好。', 
+                criteria: '< 5px 優秀 | 5-10px 良好 | 10-15px 中等 | > 15px 較差 (優先使用 Hip/Shoulder)',
+                params: 'X軸: 平均誤差 (Pixels) | Y軸: 關鍵點名稱' 
+            },
+            { 
+                id: 'chart4', 
+                title: '異常值嚴重程度 (Anomaly Severity)', 
+                desc: '統計數據中異常點的嚴重程度分佈。', 
+                criteria: '< 5% 優秀 | 5-10% 良好 | 10-15% 中等 | > 15% 需改善',
+                params: '圖表: 環形圖 (各等級數量佔比)' 
+            },
+            { 
+                id: 'chart_heatmap', 
+                title: '關節點時序熱力圖 (Temporal Heatmap)', 
+                desc: '檢視各部位在時間軸上的誤差分佈，快速識別遮擋或全身性失效。', 
+                criteria: '垂直深色條紋=全身失效 | 水平深色條紋=持續遮擋',
+                params: 'X軸: Frame | Y軸: Keypoint | 顏色: 誤差大小' 
+            },
+            { 
+                id: 'chart6', 
+                title: '深度與誤差關聯 (Depth vs Error)', 
+                desc: '分析重投影誤差與深度距離的關係（距離越遠，誤差越大是正常現象）。', 
+                criteria: '< 1500mm 高精度 | 1500-2500mm 中精度 | > 2500mm 低精度',
+                params: 'X軸: 深度 Z (mm) | Y軸: 預測誤差 (Pixels)' 
+            },
+            { 
+                id: 'chart7', 
+                title: '相機視角偏差 (Camera Bias)', 
+                desc: '比較 Side 與 45度相機的異常值比例。', 
+                criteria: '兩者差異應 < 5%，若單一相機異常率過高，可能為校正問題',
+                params: 'X軸: 相機視角 | Y軸: 異常率 (%)' 
+            },
+            { 
+                id: 'chart8', 
+                title: '特定部位異常追蹤 (Worst Keypoint)', 
+                desc: '針對誤差累積最高的特定部位進行逐幀分析。', 
+                criteria: '< 10px 優良 | 10-20px 普通 | > 20px 異常 (需檢查)',
+                params: 'X軸: 影格 (Frame) | Y軸: 該部位誤差 (Pixels)' 
+            }
+        ];
+
+        // Inject HTML
+        blocks.forEach(block => {
+            dashboardGrid.innerHTML += createCardHTML(block.id, block.title, block.desc, block.criteria, block.params);
+        });
+
+        // --- Chart 1: Global Stats (Updated) ---
+        new Chart(document.getElementById('chart1'), {
+            type: 'bar',
+            data: {
+                labels: ['平均值 (Mean)', '中位數 (Median)', '95百分位 (95th)', '最大值 (Max)'],
+                datasets: [
+                    {
+                        label: 'Side 相機',
+                        data: [
+                            data.global_stats.side_mean,
+                            data.global_stats.side_median,
+                            data.global_stats.side_95th,
+                            data.global_stats.side_max
+                        ],
+                        backgroundColor: '#667eea',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '45° 相機',
+                        data: [
+                            data.global_stats['45_mean'],
+                            data.global_stats['45_median'],
+                            data.global_stats['45_95th'],
+                            data.global_stats['45_max']
+                        ],
+                        backgroundColor: '#f093fb',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '整體 (Overall)',
+                        data: [
+                            data.global_stats.overall_mean,
+                            (data.global_stats.side_median + data.global_stats['45_median'])/2, // Approx
+                            (data.global_stats.side_95th + data.global_stats['45_95th'])/2, // Approx
+                            Math.max(data.global_stats.side_max, data.global_stats['45_max'])
+                        ],
+                        backgroundColor: '#4ade80',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // --- Chart 2: Temporal Stability ---
+        const frames = data.per_frame_errors.frames;
+        const sideErrors = data.per_frame_errors.side;
+        const cam45Errors = data.per_frame_errors['45'];
+        
+        new Chart(document.getElementById('chart2'), {
+            type: 'line',
+            data: {
+                labels: frames,
+                datasets: [
+                    { label: 'Side 相機', data: sideErrors, borderColor: '#667eea', backgroundColor: 'rgba(102, 126, 234, 0.1)', tension: 0.1, pointRadius: 0, borderWidth: 2 },
+                    { label: '45° 相機', data: cam45Errors, borderColor: '#f093fb', backgroundColor: 'rgba(240, 147, 251, 0.1)', tension: 0.1, pointRadius: 0, borderWidth: 2 }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: { x: { title: { display: true, text: '影格' }, ticks: { maxTicksLimit: 20 } } }
+            }
+        });
+
+        // --- Chart 3: Keypoint Errors ---
+        const sortedKeypoints = [...data.keypoint_errors].sort((a, b) => b.avg_error - a.avg_error);
+        new Chart(document.getElementById('chart3'), {
+            type: 'bar',
+            indexAxis: 'y',
+            data: {
+                labels: sortedKeypoints.map(k => k.name),
+                datasets: [{
+                    label: '平均誤差',
+                    data: sortedKeypoints.map(k => k.avg_error),
+                    backgroundColor: sortedKeypoints.map(k => {
+                        if (k.avg_error < 5) return '#4ade80'; // Excellent
+                        if (k.avg_error < 10) return '#fbbf24'; // Good
+                        if (k.avg_error < 15) return '#fb923c'; // Moderate
+                        return '#f87171'; // Poor
+                    }),
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // --- Chart 4: Anomaly Severity ---
+        const anomalies = data.detailed_anomalies.summary;
+        new Chart(document.getElementById('chart4'), {
+            type: 'doughnut',
+            data: {
+                labels: ['嚴重 (>2x)', '中度 (>1.5x)', '輕微 (>1x)', '正常'],
+                datasets: [{
+                    data: [
+                        anomalies.severe_count, 
+                        anomalies.moderate_count, 
+                        anomalies.mild_count, 
+                        (data.metadata.total_frames * data.metadata.total_keypoints) - anomalies.total_count
+                    ],
+                    backgroundColor: ['#f87171', '#fb923c', '#fbbf24', '#4ade80'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+
+
+        // --- Chart 6: Depth vs Error (Updated with Dropdown) ---
+        // Inject Dropdown
+        const chart6Container = document.getElementById('chart6').parentElement.parentElement;
+        const selectHTML = `
+            <div style="margin-bottom: 16px; display: flex; gap: 10px; align-items: center;">
+                <label class="control-label">選擇關節點:</label>
+                <select id="chart6Select" class="styled-select">
+                    <option value="all">全部 (All)</option>
+                    ${data.keypoint_errors.map(k => `<option value="${k.name}">${k.name}</option>`).join('')}
+                </select>
+            </div>
+        `;
+        chart6Container.insertAdjacentHTML('afterbegin', selectHTML);
+
+        const rel = data.error_depth_relationship;
+        const p1 = { x: rel.depth_min, y: rel.slope * rel.depth_min + rel.intercept };
+        const p2 = { x: rel.depth_max, y: rel.slope * rel.depth_max + rel.intercept };
+        
+        let allScatterPoints = [];
+        if (data.detailed_anomalies && data.detailed_anomalies.all_anomalies) {
+            allScatterPoints = data.detailed_anomalies.all_anomalies.map(a => ({ x: a.depth_z, y: a.error, kp: a.keypoint }));
+        } else if (data.full_keypoint_details) {
+             // If full details available, use them for better scatter
+             Object.keys(data.full_keypoint_details).forEach(kp => {
+                 data.full_keypoint_details[kp].forEach(p => {
+                     allScatterPoints.push({ x: p.depth_z, y: p.error, kp: kp });
+                 });
+             });
+        }
+
+        const chart6Ctx = document.getElementById('chart6').getContext('2d');
+        let chart6 = new Chart(chart6Ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: '誤差分佈',
+                        data: allScatterPoints,
+                        backgroundColor: '#fbbf24',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        type: 'line',
+                        label: '趨勢線',
+                        data: [p1, p2],
+                        borderColor: '#818cf8',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: '深度 Z (mm)' } },
+                    y: { title: { display: true, text: '誤差 (Pixels)' } }
+                }
+            }
+        });
+
+        // Dropdown Event Listener
+        document.getElementById('chart6Select').addEventListener('change', (e) => {
+            const selectedKp = e.target.value;
+            let filteredData = [];
+            
+            if (selectedKp === 'all') {
+                filteredData = allScatterPoints;
+            } else {
+                filteredData = allScatterPoints.filter(p => p.kp === selectedKp);
+            }
+            
+            chart6.data.datasets[0].data = filteredData;
+            chart6.update();
+        });
+
+        // --- Chart Heatmap: Temporal Heatmap ---
+        if (document.getElementById('chart_heatmap')) {
+            const heatmapCtx = document.getElementById('chart_heatmap').getContext('2d');
+            
+            // Prepare Data
+            let heatmapData = [];
+            let yLabels = [];
+            
+            if (data.full_keypoint_details) {
+                // Get all keypoints
+                const keypoints = Object.keys(data.full_keypoint_details);
+                yLabels = keypoints;
+                
+                keypoints.forEach((kp, index) => {
+                    const records = data.full_keypoint_details[kp];
+                    // Group by frame to find max error per frame for this keypoint
+                    const frameMap = {};
+                    records.forEach(r => {
+                        if (!frameMap[r.frame] || r.error > frameMap[r.frame]) {
+                            frameMap[r.frame] = r.error;
+                        }
+                    });
+                    
+                    Object.keys(frameMap).forEach(f => {
+                        heatmapData.push({
+                            x: parseInt(f),
+                            y: kp, // Use string for category axis
+                            v: frameMap[f]
+                        });
+                    });
+                });
+            }
+
+            new Chart(heatmapCtx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: '誤差熱力',
+                        data: heatmapData,
+                        backgroundColor: function(context) {
+                            const val = context.raw ? context.raw.v : 0;
+                            if (val < 10) return 'rgba(74, 222, 128, 0.6)'; // Green
+                            if (val < 20) return 'rgba(251, 191, 36, 0.6)'; // Yellow
+                            if (val < 40) return 'rgba(251, 146, 60, 0.7)'; // Orange
+                            return 'rgba(248, 113, 113, 0.8)'; // Red
+                        },
+                        borderColor: 'rgba(0,0,0,0)',
+                        pointStyle: 'rect',
+                        radius: 4, // Adjust based on density
+                        hoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: { display: true, text: 'Frame' },
+                            ticks: { stepSize: 10 }
+                        },
+                        y: {
+                            type: 'category',
+                            labels: yLabels,
+                            title: { display: true, text: 'Keypoint' },
+                            offset: true
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.raw.y} (Frame ${context.raw.x}): ${context.raw.v.toFixed(2)} px`;
+                                }
+                            }
+                        },
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // --- Chart 7: Camera Bias ---
+        new Chart(document.getElementById('chart7'), {
+            type: 'bar',
+            data: {
+                labels: ['Side 異常率', '45° 異常率'],
+                datasets: [{
+                    label: '異常率 (%)',
+                    data: [data.global_stats.outlier_rate_side, data.global_stats.outlier_rate_45],
+                    backgroundColor: ['#667eea', '#f093fb'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // --- Chart 8: Worst Keypoint ---
+        // Find keypoint with max average error
+        let targetKey = null;
+        if (data.keypoint_errors && data.keypoint_errors.length > 0) {
+            const sorted = [...data.keypoint_errors].sort((a, b) => b.avg_error - a.avg_error);
+            targetKey = sorted[0].name;
+        }
+        
+        if (targetKey) {
+            let datasets = [];
+            let chartTitle = `${targetKey} 誤差分佈追蹤`;
+            
+            if (data.full_keypoint_details && data.full_keypoint_details[targetKey]) {
+                // Use full data
+                const fullData = data.full_keypoint_details[targetKey];
+                const sideData = fullData.filter(d => d.camera === 'side').map(d => ({ x: d.frame, y: d.error }));
+                const cam45Data = fullData.filter(d => d.camera === '45').map(d => ({ x: d.frame, y: d.error }));
+                
+                datasets = [
+                    {
+                        label: 'Side 相機',
+                        data: sideData,
+                        backgroundColor: '#667eea',
+                        pointRadius: 3
+                    },
+                    {
+                        label: '45° 相機',
+                        data: cam45Data,
+                        backgroundColor: '#f093fb',
+                        pointRadius: 3
+                    },
+                    {
+                        type: 'line',
+                        label: '異常閾值 (20px)',
+                        data: [{x: 0, y: 20}, {x: (data.metadata && data.metadata.total_frames) ? data.metadata.total_frames : 300, y: 20}],
+                        borderColor: '#f87171',
+                        borderWidth: 2,
+                        borderDash: [6, 6],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ];
+            } else if (data.detailed_anomalies && data.detailed_anomalies.by_keypoint) {
+                // Fallback to anomalies only if full data is missing
+                const kData = data.detailed_anomalies.by_keypoint[targetKey];
+                if (kData) {
+                    const scatterData = kData.frames.map((f, i) => ({ x: f, y: kData.errors[i] }));
+                    datasets = [{
+                        label: `${targetKey} 異常點 (僅顯示異常)`,
+                        data: scatterData,
+                        backgroundColor: '#f87171'
+                    }];
+                    chartTitle = `${targetKey} 異常分佈 (⚠️ 僅顯示異常值，請更新 JSON 以查看完整數據)`;
+                }
+            }
+
+            if (datasets.length > 0) {
+                new Chart(document.getElementById('chart8'), {
+                    type: 'scatter',
+                    data: { datasets: datasets },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: '影格' } },
+                            y: { 
+                                title: { display: true, text: '誤差 (Pixels)' },
+                                beginAtZero: true 
+                            }
+                        },
+                        plugins: {
+                            title: { display: true, text: chartTitle },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: Frame ${context.parsed.x}, Error ${context.parsed.y.toFixed(2)}px`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+</script>
+
+</body>
+</html>

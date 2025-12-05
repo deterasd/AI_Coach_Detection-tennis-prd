@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Coach Validation Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --card-bg: rgba(20, 20, 20, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 35%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15) 0%, transparent 35%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-weight: 800;
+            font-size: 2rem;
+            background: linear-gradient(to right, #fff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px 0;
+        }
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 1rem;
+        }
+
+        /* Layout Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--glass-shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* New Step Badge Style */
+        .step-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            text-transform: uppercase;
+        }
+
+        .form-group { margin-bottom: 16px; }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-sub);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        select, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        textarea {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+        }
+        
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border-color: var(--card-border);
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+
+        .btn-success {
+            background: rgba(52, 211, 153, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
+        .btn-success:hover { background: rgba(52, 211, 153, 0.2); }
+
+        .action-row {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--card-border);
+        }
+
+        .action-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .action-title { font-weight: 600; font-size: 1rem; }
+        .action-desc { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 16px; }
+
+        .status-indicator {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .status-indicator.visible { opacity: 1; }
+
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        hr { border: 0; border-top: 1px solid var(--card-border); margin: 20px 0; }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>AI Coach Validation Dashboard</h1>
+        <div class="subtitle">3D 網球動作分析驗證控制台</div>
+    </header>
+
+    <div class="dashboard-grid">
+        <!-- Left Column: Inputs -->
+        <div class="col-left">
+            
+            <!-- 1. Data Source -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="step-badge">Step 01</span>
+                        資料來源選擇
+                    </div>
+                    <button class="btn btn-secondary refresh-btn" onclick="loadFolders()">
+                        ↻ 重新整理
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label>選擇資料夾 (Folder)</label>
+                    <select id="folder-select" onchange="loadFiles(this.value)">
+                        <option value="" disabled selected>請選擇資料夾...</option>
+                    </select>
+                </div>
+
+                <hr>
+
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>3D Trajectory JSON (主要)</label>
+                        <select id="file-3d"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>2D Side JSON</label>
+                        <select id="file-side"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>2D 45° JSON</label>
+                        <select id="file-45"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Camera Params -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="step-badge">Step 02</span>
+                        相機參數設定
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>P1 Matrix (Side Camera)</label>
+                        <textarea id="p1-matrix" rows="4">
+[[917.153880, 0.000000, 994.529968, 0.000000],
+ [0.000000, 920.803487, 531.057076, 0.000000],
+ [0.000000, 0.000000, 1.000000, 0.000000]]
+                        </textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>P2 Matrix (45° Camera)</label>
+                        <textarea id="p2-matrix" rows="4">
+[[286.476533, 43.805594, 1301.943509, -765436.820164],
+ [-309.560886, 957.641377, 401.534167, 365723.173062],
+ [-0.553187, 0.008475, 0.833014, 660.964347]]
+                        </textarea>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Execution -->
+        <div class="col-right">
+            
+            <!-- 3. Execution -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="step-badge">Step 03</span>
+                        執行驗證分析
+                    </div>
+                </div>
+
+                <!-- Global Actions -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-secondary" style="flex: 1;" onclick="clearAllSettings()">
+                        🗑️ 清空設定
+                    </button>
+                    <button class="btn btn-primary" style="flex: 1;" onclick="runAllTests()">
+                        🚀 一鍵執行全部
+                    </button>
+                </div>
+
+                <!-- Step 1 Action -->
+                <div class="action-row">
+                    <div class="action-header">
+                        <div class="action-title">Step 1: 重投影誤差驗證</div>
+                    </div>
+                    <div class="action-desc">驗證 3D 重建結果與 2D 觀測點的投影誤差，檢查相機校正準確度。</div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <button id="btn-run-step1" class="btn btn-primary" onclick="runStep1()">
+                            執行分析
+                        </button>
+                        <a id="btn-view-step1" class="btn btn-success view-btn" target="_blank">
+                            查看報告 ↗
+                        </a>
+                        <div id="status-step1" class="status-indicator">
+                            <div class="spinner"></div> <span>執行中...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 Action -->
+                <div class="action-row">
+                    <div class="action-header">
+                        <div class="action-title">Step 2: 骨架一致性驗證</div>
+                    </div>
+                    <div class="action-desc">分析骨骼長度變異、左右對稱性及動作平滑度，確保生物力學合理性。</div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <button id="btn-run-step2" class="btn btn-primary" onclick="runStep2()">
+                            執行分析
+                        </button>
+                        <a id="btn-view-step2" class="btn btn-success view-btn" target="_blank">
+                            查看報告 ↗
+                        </a>
+                        <div id="status-step2" class="status-indicator">
+                            <div class="spinner"></div> <span>執行中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // 初始化：載入資料夾
+    async function loadFolders() {
+        try {
+            const response = await fetch('/api/folders');
+            const data = await response.json();
+            const select = document.getElementById('folder-select');
+            select.innerHTML = '<option value="" disabled selected>請選擇資料夾...</option>';
+            
+            if (data.folders) {
+                data.folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder;
+                    option.text = folder;
+                    select.appendChild(option);
+                });
+                
+                // 如果只有一個資料夾，自動選擇
+                if (data.folders.length === 1) {
+                    select.value = data.folders[0];
+                    loadFiles(data.folders[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading folders:', error);
+            alert('無法載入資料夾列表，請確認後端伺服器是否已啟動。');
+        }
+    }
+
+    // 載入檔案列表
+    async function loadFiles(folder) {
+        if (!folder) return;
+        
+        try {
+            const response = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`);
+            const data = await response.json();
+            
+            if (data.files) {
+                const selects = ['file-3d', 'file-side', 'file-45'];
+                selects.forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '';
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.text = file;
+                        select.appendChild(option);
+                    });
+                });
+
+                matchFiles(data.files);
+            }
+        } catch (error) {
+            console.error('Error loading files:', error);
+            alert('無法載入檔案列表: ' + error.message);
+        }
+    }
+
+    function matchFiles(files) {
+        const file45 = files.find(f => f.includes("45(2D_trajectory_smoothed)"));
+        const fileSide = files.find(f => f.includes("side(2D_trajectory_smoothed)"));
+        
+        const files3d = files.filter(f => f.includes("(3D_trajectory_smoothed)") && !f.includes("results"));
+        files3d.sort((a, b) => a.length - b.length);
+        const file3d = files3d.length > 0 ? files3d[0] : null;
+
+        if (fileSide) document.getElementById('file-side').value = fileSide;
+        if (file45) document.getElementById('file-45').value = file45;
+        if (file3d) document.getElementById('file-3d').value = file3d;
+    }
+
+    function getMatrices() {
+        try {
+            const p1 = JSON.parse(document.getElementById('p1-matrix').value);
+            const p2 = JSON.parse(document.getElementById('p2-matrix').value);
+            return { p1, p2 };
+        } catch (e) {
+            alert('矩陣格式錯誤，請確認是有效的 JSON 陣列格式。');
+            return null;
+        }
+    }
+
+    function setRunningState(step, isRunning) {
+        const btn = document.getElementById(`btn-run-step${step}`);
+        const status = document.getElementById(`status-step${step}`);
+        const viewBtn = document.getElementById(`btn-view-step${step}`);
+
+        if (isRunning) {
+            btn.disabled = true;
+            btn.textContent = '處理中...';
+            status.classList.add('visible');
+            viewBtn.style.display = 'none';
+        } else {
+            btn.disabled = false;
+            btn.textContent = '重新執行';
+            status.classList.remove('visible');
+        }
+    }
+
+    function setCompleteState(step, resultFile) {
+        const viewBtn = document.getElementById(`btn-view-step${step}`);
+        const reportPage = step === 1 ? 'step1_reprojection_error.html' : 'step2_bone_consistency.html';
+        
+        viewBtn.href = `${reportPage}?src=${resultFile}`;
+        viewBtn.style.display = 'inline-flex';
+    }
+
+    async function runStep2() {
+        const payload = {
+            json_3d: document.getElementById('file-3d').value
+        };
+
+        setRunningState(2, true);
+
+        try {
+            const res = await fetch('/api/validate/step2', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            setRunningState(2, false);
+
+            if (data.status === 'success') {
+                setCompleteState(2, data.result_file);
+                return true; // Return success for chain execution
+            } else {
+                alert('錯誤: ' + data.error);
+                return false;
+            }
+        } catch (e) {
+            setRunningState(2, false);
+            alert('請求失敗: ' + e);
+            return false;
+        }
+    }
+
+    // Clear all settings and reset UI
+    function clearAllSettings() {
+        // Reset file selections
+        document.getElementById('file-3d').selectedIndex = -1;
+        document.getElementById('file-side').selectedIndex = -1;
+        document.getElementById('file-45').selectedIndex = -1;
+
+        // Reset UI states for Step 1
+        document.getElementById('btn-run-step1').disabled = false;
+        document.getElementById('btn-run-step1').textContent = '執行分析';
+        document.getElementById('status-step1').classList.remove('visible');
+        document.getElementById('btn-view-step1').style.display = 'none';
+        document.getElementById('btn-view-step1').href = '#';
+
+        // Reset UI states for Step 2
+        document.getElementById('btn-run-step2').disabled = false;
+        document.getElementById('btn-run-step2').textContent = '執行分析';
+        document.getElementById('status-step2').classList.remove('visible');
+        document.getElementById('btn-view-step2').style.display = 'none';
+        document.getElementById('btn-view-step2').href = '#';
+    }
+
+    // Run all tests sequentially
+    async function runAllTests() {
+        // Check if files are selected
+        if (!document.getElementById('file-3d').value) {
+            alert('請先選擇 3D Trajectory JSON 檔案');
+            return;
+        }
+
+        // Run Step 1
+        const step1Success = await runStep1();
+        if (!step1Success) return;
+
+        // Run Step 2
+        await runStep2();
+    }
+
+    // Modified runStep1 to return success status
+    async function runStep1() {
+        const matrices = getMatrices();
+        if (!matrices) return false;
+
+        const payload = {
+            json_3d: document.getElementById('file-3d').value,
+            json_2d_side: document.getElementById('file-side').value,
+            json_2d_45: document.getElementById('file-45').value,
+            p1: matrices.p1,
+            p2: matrices.p2
+        };
+
+        setRunningState(1, true);
+
+        try {
+            const res = await fetch('/api/validate/step1', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            setRunningState(1, false);
+
+            if (data.status === 'success') {
+                setCompleteState(1, data.result_file);
+                return true;
+            } else {
+                alert('錯誤: ' + data.error);
+                return false;
+            }
+        } catch (e) {
+            setRunningState(1, false);
+            alert('請求失敗: ' + e);
+            return false;
+        }
+    }
+
+    // 初始化
+    loadFolders();
+</script>
+
+</body>
+</html>
