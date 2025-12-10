@@ -434,7 +434,7 @@
                         <tr>
                             <th>部位</th>
                             <th>平均長度 (cm)</th>
-                            <th>標準差 (Std)</th>
+                            <th>標準差長度 (Std)</th>
                             <th>變異係數 (CV%)</th>
                             <th>品質</th>
                         </tr>
@@ -523,29 +523,33 @@
         reader.readAsText(file);
     });
 
-    // Auto-load from URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const src = urlParams.get('src');
-    if (src) {
-        fetch(src)
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.text(); // Get text first to handle NaN
-            })
-            .then(text => {
-                // Pre-process JSON string to handle NaN/Infinity
-                let jsonString = text;
-                jsonString = jsonString.replace(/:\s*NaN/g, ': null');
-                jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
-                jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
-                
-                const data = JSON.parse(jsonString);
-                renderDashboard(data);
-            })
-            .catch(err => {
-                console.error('Error loading JSON from URL:', err);
-                alert('無法從 URL 載入 JSON 檔案: ' + src);
-            });
+    // Auto-load from URL parameter or Offline Data
+    if (window.OFFLINE_DATA) {
+        renderDashboard(window.OFFLINE_DATA);
+    } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const src = urlParams.get('src');
+        if (src) {
+            fetch(src)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text(); // Get text first to handle NaN
+                })
+                .then(text => {
+                    // Pre-process JSON string to handle NaN/Infinity
+                    let jsonString = text;
+                    jsonString = jsonString.replace(/:\s*NaN/g, ': null');
+                    jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
+                    jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
+                    
+                    const data = JSON.parse(jsonString);
+                    renderDashboard(data);
+                })
+                .catch(err => {
+                    console.error('Error loading JSON from URL:', err);
+                    alert('無法從 URL 載入 JSON 檔案: ' + src);
+                });
+        }
     }
 
     function createCardHTML(id, title, description, criteria, params) {

@@ -400,7 +400,8 @@ def calculate_reprojection_errors(
             if point_3d is None:
                 continue
 
-            X_h = np.array([point_3d[0], point_3d[1], point_3d[2], 1.0], dtype=float)
+            # 修正：因為輸入的 3D 檔案 Y, Z 軸已被反轉，需轉回原始座標系以配合 P 矩陣
+            X_h = np.array([point_3d[0], -point_3d[1], point_3d[2], 1.0], dtype=float)
 
             if kp == "nose":
                 Z_values.append(point_3d[2])
@@ -780,7 +781,8 @@ def validate_reprojection_analysis(
         full_keypoint_details[kp].append({
             "frame": int(frame),
             "camera": cam,
-            "error": float(err)
+            "error": float(err),
+            "depth_z": float(z)
         })
     
     # 列印報告

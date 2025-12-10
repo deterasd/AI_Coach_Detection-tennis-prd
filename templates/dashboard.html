@@ -295,6 +295,21 @@
                     </div>
                 </div>
 
+                <!-- Config Management -->
+                <div class="form-group" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <label style="margin-bottom: 10px;">快速設定 (Quick Config)</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="config-select" onchange="loadConfig(this.value)" style="flex: 1;">
+                            <option value="" disabled selected>選擇設定檔...</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="deleteConfig()" title="刪除目前設定">🗑️</button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="new-config-name" placeholder="輸入新設定名稱..." style="flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(0,0,0,0.3); color: var(--text-main);">
+                        <button class="btn btn-primary" onclick="saveConfig()">💾 儲存設定</button>
+                    </div>
+                </div>
+
                 <div class="grid-2">
                     <div class="form-group">
                         <label>P1 Matrix (Side Camera)</label>
@@ -353,6 +368,9 @@
                         <a id="btn-view-step1" class="btn btn-success view-btn" target="_blank">
                             查看報告 ↗
                         </a>
+                        <button id="btn-download-step1" class="btn btn-secondary" style="display:none;" onclick="downloadReport(1)">
+                            📥 下載離線報告
+                        </button>
                         <div id="status-step1" class="status-indicator">
                             <div class="spinner"></div> <span>執行中...</span>
                         </div>
@@ -373,6 +391,9 @@
                         <a id="btn-view-step2" class="btn btn-success view-btn" target="_blank">
                             查看報告 ↗
                         </a>
+                        <button id="btn-download-step2" class="btn btn-secondary" style="display:none;" onclick="downloadReport(2)">
+                            📥 下載離線報告
+                        </button>
                         <div id="status-step2" class="status-indicator">
                             <div class="spinner"></div> <span>執行中...</span>
                         </div>
@@ -385,6 +406,107 @@
 </div>
 
 <script>
+    let cameraConfigs = {};
+
+    async function loadConfigs() {
+        try {
+            const response = await fetch('/api/camera-settings');
+            cameraConfigs = await response.json();
+            const select = document.getElementById('config-select');
+            // Keep current selection if possible
+            const currentVal = select.value;
+            
+            select.innerHTML = '<option value="" disabled selected>選擇設定檔...</option>';
+            
+            Object.keys(cameraConfigs).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.text = name;
+                select.appendChild(option);
+            });
+            
+            if (currentVal && cameraConfigs[currentVal]) {
+                select.value = currentVal;
+            }
+        } catch (error) {
+            console.error('Error loading configs:', error);
+        }
+    }
+
+    function loadConfig(name) {
+        if (cameraConfigs[name]) {
+            const config = cameraConfigs[name];
+            
+            // Custom formatter to keep rows on single lines
+            const formatMatrix = (matrix) => {
+                if (!Array.isArray(matrix)) return JSON.stringify(matrix, null, 4);
+                return '[\n' + matrix.map(row => '    ' + JSON.stringify(row).replace(/,/g, ', ')).join(',\n') + '\n]';
+            };
+
+            document.getElementById('p1-matrix').value = formatMatrix(config.p1);
+            document.getElementById('p2-matrix').value = formatMatrix(config.p2);
+        }
+    }
+
+    async function saveConfig() {
+        const name = document.getElementById('new-config-name').value.trim();
+        if (!name) {
+            alert('請輸入設定名稱');
+            return;
+        }
+        
+        const matrices = getMatrices();
+        if (!matrices) return;
+
+        try {
+            const response = await fetch('/api/camera-settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: name,
+                    p1: matrices.p1,
+                    p2: matrices.p2
+                })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert('設定已儲存');
+                document.getElementById('new-config-name').value = '';
+                loadConfigs(); // Reload list
+            } else {
+                alert('儲存失敗: ' + result.error);
+            }
+        } catch (e) {
+            alert('儲存失敗: ' + e);
+        }
+    }
+
+    async function deleteConfig() {
+        const select = document.getElementById('config-select');
+        const name = select.value;
+        if (!name) {
+            alert('請先選擇要刪除的設定');
+            return;
+        }
+        
+        if (!confirm(`確定要刪除設定 "${name}" 嗎？`)) return;
+
+        try {
+            const response = await fetch(`/api/camera-settings/${encodeURIComponent(name)}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert('設定已刪除');
+                loadConfigs(); // Reload list
+            } else {
+                alert('刪除失敗: ' + result.error);
+            }
+        } catch (e) {
+            alert('刪除失敗: ' + e);
+        }
+    }
+
     // 初始化：載入資料夾
     async function loadFolders() {
         try {
@@ -456,12 +578,20 @@
     }
 
     function getMatrices() {
+        const parseMatrix = (id) => {
+            let val = document.getElementById(id).value.trim();
+            // Remove trailing commas in arrays (e.g., [1, 2,], -> [1, 2])
+            val = val.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}');
+            return JSON.parse(val);
+        };
+
         try {
-            const p1 = JSON.parse(document.getElementById('p1-matrix').value);
-            const p2 = JSON.parse(document.getElementById('p2-matrix').value);
+            const p1 = parseMatrix('p1-matrix');
+            const p2 = parseMatrix('p2-matrix');
             return { p1, p2 };
         } catch (e) {
-            alert('矩陣格式錯誤，請確認是有效的 JSON 陣列格式。');
+            console.error(e);
+            alert('矩陣格式錯誤，請確認是有效的 JSON 陣列格式。\n(提示: 請檢查是否有多的逗號或括號不匹配)');
             return null;
         }
     }
@@ -487,8 +617,23 @@
         const viewBtn = document.getElementById(`btn-view-step${step}`);
         const reportPage = step === 1 ? 'step1_reprojection_error.html' : 'step2_bone_consistency.html';
         
-        viewBtn.href = `${reportPage}?src=${resultFile}`;
+        viewBtn.href = `${reportPage}?src=${encodeURIComponent(resultFile)}`;
         viewBtn.style.display = 'inline-flex';
+
+        // Store result for download and show button
+        if (step === 1) window.step1Result = resultFile;
+        if (step === 2) window.step2Result = resultFile;
+        
+        const downloadBtn = document.getElementById(`btn-download-step${step}`);
+        if (downloadBtn) downloadBtn.style.display = 'inline-flex';
+    }
+
+    function downloadReport(step) {
+        const resultFile = step === 1 ? window.step1Result : window.step2Result;
+        if (!resultFile) return;
+        
+        const url = `/api/export/offline-report?type=step${step}&file=${encodeURIComponent(resultFile)}`;
+        window.location.href = url;
     }
 
     async function runStep2() {
@@ -535,6 +680,7 @@
         document.getElementById('status-step1').classList.remove('visible');
         document.getElementById('btn-view-step1').style.display = 'none';
         document.getElementById('btn-view-step1').href = '#';
+        document.getElementById('btn-download-step1').style.display = 'none';
 
         // Reset UI states for Step 2
         document.getElementById('btn-run-step2').disabled = false;
@@ -542,6 +688,7 @@
         document.getElementById('status-step2').classList.remove('visible');
         document.getElementById('btn-view-step2').style.display = 'none';
         document.getElementById('btn-view-step2').href = '#';
+        document.getElementById('btn-download-step2').style.display = 'none';
     }
 
     // Run all tests sequentially
@@ -555,9 +702,18 @@
         // Run Step 1
         const step1Success = await runStep1();
         if (!step1Success) return;
+        
+        // Open Step 1 Report
+        const btn1 = document.getElementById('btn-view-step1');
+        if (btn1 && btn1.href) window.open(btn1.href, '_blank');
 
         // Run Step 2
-        await runStep2();
+        const step2Success = await runStep2();
+        if (step2Success) {
+            // Open Step 2 Report
+            const btn2 = document.getElementById('btn-view-step2');
+            if (btn2 && btn2.href) window.open(btn2.href, '_blank');
+        }
     }
 
     // Modified runStep1 to return success status
@@ -601,6 +757,7 @@
 
     // 初始化
     loadFolders();
+    loadConfigs();
 </script>
 
 </body>

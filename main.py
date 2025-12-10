@@ -1,7 +1,8 @@
 import os
 import json
+import re
 import numpy as np
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, make_response
 import glob
 
 # Import validation functions
@@ -13,11 +14,16 @@ app = Flask(__name__, static_folder='templates')
 
 # Configuration
 # DATA_DIR is now dynamic based on request, but we can keep a default
-DEFAULT_DATA_DIR = 'trajectory__2'
+DEFAULT_DATA_DIR = 'data'
+CAMERA_CONFIG_FILE = 'camera_configs.json'
 
 @app.route('/')
 def index():
     return send_from_directory('templates', 'dashboard.html')
+
+@app.route('/data/<path:filename>')
+def serve_data(filename):
+    return send_from_directory('data', filename)
 
 @app.route('/<path:path>')
 def serve_static(path):
@@ -29,11 +35,23 @@ def serve_static(path):
 
 @app.route('/api/folders', methods=['GET'])
 def list_folders():
-    """List all subdirectories in the current directory."""
+    """List all subdirectories recursively that contain JSON files."""
+    folders = []
     try:
-        # List directories in current path, excluding hidden/system ones
-        folders = [d for d in os.listdir('.') if os.path.isdir(d) and not d.startswith('.') and not d.startswith('__')]
-        return jsonify({"folders": folders})
+        # Walk through the directory tree
+        for root, dirs, files in os.walk('.'):
+            # Modify dirs in-place to skip unwanted directories
+            dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('__') and d not in ['templates', 'modules', 'static', 'venv', 'env', '.git']]
+            
+            # Check if current directory contains any .json files
+            if any(f.lower().endswith('.json') for f in files):
+                # Get relative path
+                rel_path = os.path.relpath(root, '.').replace('\\', '/')
+                if rel_path == '.':
+                    continue
+                folders.append(rel_path)
+                
+        return jsonify({"folders": sorted(folders)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -126,6 +144,123 @@ def validate_step2():
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+def load_camera_configs():
+    if not os.path.exists(CAMERA_CONFIG_FILE):
+        return {}
+    try:
+        with open(CAMERA_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_camera_configs(configs):
+    # Dump with default indentation
+    json_str = json.dumps(configs, indent=4)
+    
+    # Post-process to collapse inner lists of numbers (matrices rows)
+    # Match arrays containing only numbers, whitespace, commas, dots, minus, e/E
+    # This regex avoids matching arrays that contain objects or other arrays (no [ or ])
+    pattern = r'\[\s*([0-9.,\-\seE]+)\s*\]'
+    
+    def replacer(match):
+        content = match.group(1)
+        # Split by comma, strip whitespace, filter empty, join back
+        items = [item.strip() for item in content.split(',') if item.strip()]
+        return "[" + ", ".join(items) + "]"
+        
+    new_json_str = re.sub(pattern, replacer, json_str)
+
+    with open(CAMERA_CONFIG_FILE, 'w', encoding='utf-8') as f:
+        f.write(new_json_str)
+
+@app.route('/api/camera-settings', methods=['GET', 'POST'])
+def handle_camera_settings():
+    if request.method == 'GET':
+        configs = load_camera_configs()
+        return jsonify(configs)
+    
+    elif request.method == 'POST':
+        data = request.json
+        name = data.get('name')
+        p1 = data.get('p1')
+        p2 = data.get('p2')
+        
+        if not name or not p1 or not p2:
+            return jsonify({"error": "Missing name, p1, or p2"}), 400
+            
+        configs = load_camera_configs()
+        configs[name] = {
+            "p1": p1,
+            "p2": p2
+        }
+        save_camera_configs(configs)
+        return jsonify({"status": "success", "message": f"Configuration '{name}' saved."})
+
+@app.route('/api/camera-settings/<name>', methods=['DELETE'])
+def delete_camera_setting(name):
+    configs = load_camera_configs()
+    if name in configs:
+        del configs[name]
+        save_camera_configs(configs)
+        return jsonify({"status": "success", "message": f"Configuration '{name}' deleted."})
+    return jsonify({"error": "Configuration not found"}), 404
+
+@app.route('/api/export/offline-report', methods=['GET'])
+def export_offline_report():
+    report_type = request.args.get('type')
+    result_file = request.args.get('file')
+    
+    if not report_type or not result_file:
+        return jsonify({"error": "Missing parameters"}), 400
+        
+    if not os.path.exists(result_file):
+        return jsonify({"error": "Result file not found"}), 404
+        
+    # Determine template file
+    if report_type == 'step1':
+        template_file = 'templates/step1_reprojection_error.html'
+    elif report_type == 'step2':
+        template_file = 'templates/step2_bone_consistency.html'
+    else:
+        return jsonify({"error": "Invalid report type"}), 400
+        
+    if not os.path.exists(template_file):
+        return jsonify({"error": "Template file not found"}), 404
+        
+    try:
+        # Read JSON data
+        with open(result_file, 'r', encoding='utf-8') as f:
+            json_content = f.read()
+            
+        # Read HTML template
+        with open(template_file, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+            
+        # Inject data
+        # We inject it into the head so it's available before any body scripts run
+        injection_script = f"""
+    <script>
+        window.OFFLINE_DATA = {json_content};
+        console.log("Offline data loaded successfully");
+    </script>
+"""
+        
+        if '</head>' in html_content:
+            modified_html = html_content.replace('</head>', f'{injection_script}\n</head>')
+        else:
+            # Fallback if no head tag
+            modified_html = injection_script + html_content
+        
+        # Create response
+        response = make_response(modified_html)
+        response.headers['Content-Disposition'] = f'attachment; filename={report_type}_offline_report.html'
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        
+        return response
+        
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

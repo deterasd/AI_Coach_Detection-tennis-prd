@@ -592,22 +592,26 @@
         reader.readAsText(file);
     });
 
-    // Auto-load from URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const src = urlParams.get('src');
-    if (src) {
-        fetch(src)
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.json();
-            })
-            .then(data => {
-                renderDashboard(data);
-            })
-            .catch(err => {
-                console.error('Error loading JSON from URL:', err);
-                alert('無法從 URL 載入 JSON 檔案: ' + src);
-            });
+    // Auto-load from URL parameter or Offline Data
+    if (window.OFFLINE_DATA) {
+        renderDashboard(window.OFFLINE_DATA);
+    } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const src = urlParams.get('src');
+        if (src) {
+            fetch(src)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Network response was not ok (${response.status} ${response.statusText})`);
+                    return response.json();
+                })
+                .then(data => {
+                    renderDashboard(data);
+                })
+                .catch(err => {
+                    console.error('Error loading JSON from URL:', err);
+                    alert(`無法從 URL 載入 JSON 檔案: ${src}\n錯誤訊息: ${err.message}`);
+                });
+        }
     }
 
     function createCardHTML(id, title, description, criteria, params) {
@@ -744,7 +748,30 @@
         // --- 5. Populate Severe Anomalies Table (With Filter Logic) ---
         // Store anomalies globally for filtering
         window.allAnomaliesData = [];
-        if (data.detailed_anomalies && data.detailed_anomalies.all_anomalies) {
+        
+        // Prefer full_keypoint_details if available (contains all data points)
+        if (data.full_keypoint_details) {
+            Object.keys(data.full_keypoint_details).forEach(kp => {
+                data.full_keypoint_details[kp].forEach(record => {
+                    // Determine severity dynamically if not present
+                    let severity = 'normal';
+                    if (record.error > 40) severity = 'severe';
+                    else if (record.error > 30) severity = 'moderate';
+                    else if (record.error > 20) severity = 'mild';
+
+                    window.allAnomaliesData.push({
+                        frame: record.frame,
+                        camera: record.camera,
+                        keypoint: kp,
+                        error: record.error,
+                        depth_z: record.depth_z || 0, // Handle missing depth if old JSON
+                        severity: severity
+                    });
+                });
+            });
+        } 
+        // Fallback to pre-filtered anomalies if full details are missing
+        else if (data.detailed_anomalies && data.detailed_anomalies.all_anomalies) {
             window.allAnomaliesData = data.detailed_anomalies.all_anomalies;
         }
 
@@ -979,7 +1006,13 @@
         });
 
         // --- Chart 4: Anomaly Severity ---
-        const anomalies = data.detailed_anomalies.summary;
+        const anomalies = (data.detailed_anomalies && data.detailed_anomalies.summary) ? data.detailed_anomalies.summary : {
+            severe_count: 0,
+            moderate_count: 0,
+            mild_count: 0,
+            total_count: 0
+        };
+        
         new Chart(document.getElementById('chart4'), {
             type: 'doughnut',
             data: {
@@ -1030,28 +1063,45 @@
              });
         }
 
+        // Define colors for keypoints
+        const kpColors = {
+            'nose': '#ef4444', 'left_eye': '#f97316', 'right_eye': '#f59e0b', 'left_ear': '#eab308', 'right_ear': '#84cc16',
+            'left_shoulder': '#22c55e', 'right_shoulder': '#10b981', 'left_elbow': '#14b8a6', 'right_elbow': '#06b6d4',
+            'left_wrist': '#0ea5e9', 'right_wrist': '#3b82f6', 'left_hip': '#6366f1', 'right_hip': '#8b5cf6',
+            'left_knee': '#a855f7', 'right_knee': '#d946ef', 'left_ankle': '#ec4899', 'right_ankle': '#f43f5e'
+        };
+        const defaultColor = '#9ca3af';
+
+        // Group data by keypoint for multiple datasets
+        const scatterDatasets = [];
+        const uniqueKps = [...new Set(allScatterPoints.map(p => p.kp))];
+        
+        uniqueKps.forEach(kp => {
+            scatterDatasets.push({
+                label: kp,
+                data: allScatterPoints.filter(p => p.kp === kp),
+                backgroundColor: kpColors[kp] || defaultColor,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            });
+        });
+
+        // Add trend line
+        scatterDatasets.push({
+            type: 'line',
+            label: '趨勢線',
+            data: [p1, p2],
+            borderColor: '#818cf8',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false
+        });
+
         const chart6Ctx = document.getElementById('chart6').getContext('2d');
         let chart6 = new Chart(chart6Ctx, {
             type: 'scatter',
             data: {
-                datasets: [
-                    {
-                        label: '誤差分佈',
-                        data: allScatterPoints,
-                        backgroundColor: '#fbbf24',
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    },
-                    {
-                        type: 'line',
-                        label: '趨勢線',
-                        data: [p1, p2],
-                        borderColor: '#818cf8',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: false
-                    }
-                ]
+                datasets: scatterDatasets
             },
             options: { 
                 responsive: true, 
@@ -1059,106 +1109,160 @@
                 scales: {
                     x: { type: 'linear', position: 'bottom', title: { display: true, text: '深度 Z (mm)' } },
                     y: { title: { display: true, text: '誤差 (Pixels)' } }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'right',
+                        labels: {
+                            boxWidth: 8,
+                            usePointStyle: true,
+                            font: { size: 10 },
+                            color: '#9ca3af'
+                        }
+                    }
                 }
             }
         });
 
-        // Dropdown Event Listener
+        // Dropdown Event Listener - Toggle visibility
         document.getElementById('chart6Select').addEventListener('change', (e) => {
             const selectedKp = e.target.value;
-            let filteredData = [];
             
-            if (selectedKp === 'all') {
-                filteredData = allScatterPoints;
-            } else {
-                filteredData = allScatterPoints.filter(p => p.kp === selectedKp);
-            }
-            
-            chart6.data.datasets[0].data = filteredData;
+            chart6.data.datasets.forEach((ds, index) => {
+                if (ds.type === 'line') return; // Always show trend line
+                
+                if (selectedKp === 'all') {
+                    chart6.setDatasetVisibility(index, true);
+                } else {
+                    chart6.setDatasetVisibility(index, ds.label === selectedKp);
+                }
+            });
             chart6.update();
         });
 
         // --- Chart Heatmap: Temporal Heatmap ---
         if (document.getElementById('chart_heatmap')) {
-            const heatmapCtx = document.getElementById('chart_heatmap').getContext('2d');
+            const heatmapContainer = document.getElementById('chart_heatmap').parentElement.parentElement;
             
-            // Prepare Data
-            let heatmapData = [];
-            let yLabels = [];
-            
-            if (data.full_keypoint_details) {
-                // Get all keypoints
-                const keypoints = Object.keys(data.full_keypoint_details);
-                yLabels = keypoints;
-                
-                keypoints.forEach((kp, index) => {
-                    const records = data.full_keypoint_details[kp];
-                    // Group by frame to find max error per frame for this keypoint
-                    const frameMap = {};
-                    records.forEach(r => {
-                        if (!frameMap[r.frame] || r.error > frameMap[r.frame]) {
-                            frameMap[r.frame] = r.error;
-                        }
-                    });
-                    
-                    Object.keys(frameMap).forEach(f => {
-                        heatmapData.push({
-                            x: parseInt(f),
-                            y: kp, // Use string for category axis
-                            v: frameMap[f]
-                        });
-                    });
-                });
+            // Inject Dropdown if not exists
+            if (!document.getElementById('heatmapCameraSelect')) {
+                const hmSelectHTML = `
+                    <div style="margin-bottom: 16px; display: flex; gap: 10px; align-items: center;">
+                        <label class="control-label">相機視角:</label>
+                        <select id="heatmapCameraSelect" class="styled-select">
+                            <option value="all">全部 (All)</option>
+                            <option value="side">Side</option>
+                            <option value="45">45°</option>
+                        </select>
+                    </div>
+                `;
+                heatmapContainer.insertAdjacentHTML('afterbegin', hmSelectHTML);
             }
 
-            new Chart(heatmapCtx, {
-                type: 'bubble',
-                data: {
-                    datasets: [{
-                        label: '誤差熱力',
-                        data: heatmapData,
-                        backgroundColor: function(context) {
-                            const val = context.raw ? context.raw.v : 0;
-                            if (val < 10) return 'rgba(74, 222, 128, 0.6)'; // Green
-                            if (val < 20) return 'rgba(251, 191, 36, 0.6)'; // Yellow
-                            if (val < 40) return 'rgba(251, 146, 60, 0.7)'; // Orange
-                            return 'rgba(248, 113, 113, 0.8)'; // Red
-                        },
-                        borderColor: 'rgba(0,0,0,0)',
-                        pointStyle: 'rect',
-                        radius: 4, // Adjust based on density
-                        hoverRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            position: 'bottom',
-                            title: { display: true, text: 'Frame' },
-                            ticks: { stepSize: 10 }
-                        },
-                        y: {
-                            type: 'category',
-                            labels: yLabels,
-                            title: { display: true, text: 'Keypoint' },
-                            offset: true
+            const heatmapCtx = document.getElementById('chart_heatmap').getContext('2d');
+            let heatmapChart = null;
+
+            function updateHeatmap() {
+                const filterCam = document.getElementById('heatmapCameraSelect').value;
+                
+                // Prepare Data
+                let heatmapData = [];
+                let yLabels = [];
+                
+                if (data.full_keypoint_details) {
+                    // Get all keypoints
+                    const keypoints = Object.keys(data.full_keypoint_details);
+                    yLabels = keypoints;
+                    
+                    keypoints.forEach((kp) => {
+                        let records = data.full_keypoint_details[kp];
+                        
+                        // Filter by Camera
+                        if (filterCam !== 'all') {
+                            records = records.filter(r => r.camera === filterCam);
                         }
+
+                        // Group by frame to find max error per frame for this keypoint
+                        const frameMap = {};
+                        records.forEach(r => {
+                            if (!frameMap[r.frame] || r.error > frameMap[r.frame]) {
+                                frameMap[r.frame] = r.error;
+                            }
+                        });
+                        
+                        Object.keys(frameMap).forEach(f => {
+                            heatmapData.push({
+                                x: parseInt(f), // Frame on X
+                                y: kp, // Keypoint on Y
+                                v: frameMap[f]
+                            });
+                        });
+                    });
+                }
+
+                if (heatmapChart) {
+                    heatmapChart.destroy();
+                }
+
+                heatmapChart = new Chart(heatmapCtx, {
+                    type: 'bubble',
+                    data: {
+                        datasets: [{
+                            label: '誤差熱力',
+                            data: heatmapData,
+                            backgroundColor: function(context) {
+                                const val = context.raw ? context.raw.v : 0;
+                                if (val < 10) return 'rgba(74, 222, 128, 0.6)'; // Green
+                                if (val < 20) return 'rgba(251, 191, 36, 0.6)'; // Yellow
+                                if (val < 40) return 'rgba(251, 146, 60, 0.7)'; // Orange
+                                return 'rgba(248, 113, 113, 0.8)'; // Red
+                            },
+                            borderColor: 'rgba(0,0,0,0)',
+                            pointStyle: 'rect',
+                            radius: 5, 
+                            hoverRadius: 7
+                        }]
                     },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.raw.y} (Frame ${context.raw.x}): ${context.raw.v.toFixed(2)} px`;
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: { display: true, text: 'Frame' },
+                                ticks: { stepSize: 20 }
+                            },
+                            y: {
+                                type: 'category',
+                                labels: yLabels,
+                                title: { display: true, text: 'Keypoint' },
+                                offset: true,
+                                ticks: {
+                                    autoSkip: false
                                 }
                             }
                         },
-                        legend: { display: false }
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.raw.y} (Frame ${context.raw.x}): ${context.raw.v.toFixed(2)} px`;
+                                    }
+                                }
+                            },
+                            legend: { display: false }
+                        }
                     }
-                }
-            });
+                });
+            }
+
+            // Initial Load
+            updateHeatmap();
+
+            // Event Listener
+            document.getElementById('heatmapCameraSelect').addEventListener('change', updateHeatmap);
         }
 
         // --- Chart 7: Camera Bias ---
