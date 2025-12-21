@@ -685,9 +685,9 @@
             try {
                 // Pre-process JSON string to handle NaN/Infinity which are valid in Python but not in standard JSON
                 let jsonString = e.target.result;
-                jsonString = jsonString.replace(/:\s*NaN/g, ': null');
-                jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
-                jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
+                jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
                 
                 const data = JSON.parse(jsonString);
                 renderDashboard(data);
@@ -714,9 +714,9 @@
                 .then(text => {
                     // Pre-process JSON string to handle NaN/Infinity
                     let jsonString = text;
-                    jsonString = jsonString.replace(/:\s*NaN/g, ': null');
-                    jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
-                    jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
+                    jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
                     
                     const data = JSON.parse(jsonString);
                     renderDashboard(data);
@@ -835,6 +835,26 @@
 
     function calculateCompositeScoreStep2(data) {
         if (!data || !data.overall_summary) return null;
+
+        // 如果後端已經計算了詳細的分數結構，直接使用後端的結果
+        if (data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
+            const qs = data.overall_summary.quality_score;
+            const breakdown = qs.deductions.map(d => ({
+                label: d.reason.split('(')[0].trim(),
+                value: d.reason.match(/\((.*?)\)/) ? d.reason.match(/\((.*?)\)/)[1] : '',
+                detail: d.reason,
+                impact: d.points
+            }));
+            
+            return {
+                score: qs.score,
+                level: qs.level,
+                summary: breakdown.length > 0 
+                    ? `主要扣分項目: ${breakdown[0].detail}` 
+                    : '檢測結果優良，骨架一致性高。',
+                breakdown: breakdown
+            };
+        }
 
         let workingScore = 100;
         const breakdown = [];

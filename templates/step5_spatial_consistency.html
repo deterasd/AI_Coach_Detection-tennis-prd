@@ -620,11 +620,16 @@
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const data = JSON.parse(event.target.result);
+                let jsonString = event.target.result;
+                jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
+                
+                const data = JSON.parse(jsonString);
                 const viewData = data.Global ? data.Global : data;
                 renderDashboard(viewData);
             } catch (error) {
-                alert('解析 JSON 失敗，請確認檔案格式。');
+                alert('解析 JSON 失敗，請確認檔案格式。\n錯誤: ' + error.message);
                 console.error(error);
             }
         };
@@ -635,8 +640,17 @@
     const src = urlParams.get('src');
     if (src) {
         fetch(src)
-            .then(response => response.json())
-            .then(data => {
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.text();
+            })
+            .then(text => {
+                let jsonString = text;
+                jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
+                
+                const data = JSON.parse(jsonString);
                 const viewData = data.Global ? data.Global : data;
                 renderDashboard(viewData);
             })
@@ -685,6 +699,115 @@
         return `${num.toFixed(digits)}${suffix}`;
     };
 
+    function calculateCompositeScoreStep5(data) {
+        if (!data || !data.overall_summary) return null;
+
+        // 如果後端已經計算了詳細的分數結構，直接使用後端的結果
+        if (data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
+            const qs = data.overall_summary.quality_score;
+            const breakdown = qs.deductions.map(d => ({
+                label: d.reason.split('(')[0].trim(),
+                value: d.reason.match(/\((.*?)\)/) ? d.reason.match(/\((.*?)\)/)[1] : '',
+                detail: d.reason,
+                impact: d.points
+            }));
+            
+            return {
+                score: qs.score,
+                level: qs.level,
+                summary: breakdown.length > 0 
+                    ? `主要扣分項目: ${breakdown[0].detail}` 
+                    : '空間一致性良好，無顯著異常。',
+                breakdown: breakdown
+            };
+        }
+
+        // Fallback: 前端計算 (當後端未提供分數時使用)
+        let score = 100;
+        const deductions = [];
+        
+        const ground = data.ground_plane_consistency || {};
+        const penetration = data.penetration_detection || {};
+
+        const register = (label, value, detail, penalty) => {
+            if (penalty > 0) {
+                score -= penalty;
+                deductions.push({ label, value, detail, impact: penalty });
+            }
+        };
+
+        // 1. Ground Plane Consistency
+        if (ground.mean_diff_mm) {
+            const diff = ground.mean_diff_mm;
+            if (diff > 50) {
+                register('地面一致性', `${diff.toFixed(1)}mm`, '左右腳踝高度差異過大 (>50mm)', Math.min(30, (diff - 50) * 0.5));
+            } else if (diff > 30) {
+                register('地面一致性', `${diff.toFixed(1)}mm`, '左右腳踝高度差異略大 (>30mm)', Math.min(15, (diff - 30) * 0.5));
+            }
+        }
+
+        // 2. Penetration
+        if (penetration.penetration_rate) {
+            const rate = penetration.penetration_rate;
+            if (rate > 5) {
+                register('地面穿透', `${rate.toFixed(1)}%`, '身體部位穿透地面比例過高 (>5%)', Math.min(40, (rate - 5) * 2));
+            } else if (rate > 1) {
+                register('地面穿透', `${rate.toFixed(1)}%`, '少量身體部位穿透地面 (>1%)', Math.min(20, (rate - 1) * 2));
+            }
+        }
+
+        score = Math.max(0, Math.min(100, score));
+        
+        let level = 'Poor';
+        if (score >= 90) level = 'Excellent';
+        else if (score >= 80) level = 'Good';
+        else if (score >= 60) level = 'Fair';
+
+        const summary = deductions.length > 0 
+            ? `主要扣分: ${deductions[0].label}` 
+            : '空間一致性良好，無顯著異常。';
+
+        return { score, level, summary, breakdown: deductions };
+    }
+
+    function renderCompositeScoreCard(result) {
+        if (!result) {
+            compositeScoreCard.style.display = 'none';
+            return;
+        }
+
+        const scoreValue = safeNumber(result.score);
+        compositeScoreCard.style.display = 'grid';
+        const displayScore = scoreValue !== null ? scoreValue : 0;
+        compositeScoreValue.textContent = scoreValue !== null ? displayScore.toFixed(1).replace(/\.0$/, '') : '--';
+        compositeScoreLevel.textContent = result.level;
+        compositeScoreProgress.style.width = `${clamp(displayScore, 0, 100)}%`;
+        compositeScoreSummary.textContent = result.summary;
+
+        const deductions = (result.breakdown || []).filter(item => item.impact > 0);
+        if (deductions.length > 0) {
+            compositeScoreDetails.innerHTML = deductions.map(item => `
+                <div class="score-detail-item">
+                    <div>
+                        <div class="score-detail-label">${item.label}</div>
+                        <div class="score-detail-desc">${item.detail}</div>
+                    </div>
+                    <div class="score-detail-value">
+                        <span>${item.value}</span>
+                        <span class="impact-negative">-${item.impact.toFixed(1)}</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            compositeScoreDetails.innerHTML = `
+                <div class="score-detail-item score-empty">
+                    <div class="score-detail-label">完美表現</div>
+                    <div class="score-detail-desc">未偵測到明顯異常，持續維持！</div>
+                </div>
+            `;
+        }
+    }
+
     function renderDashboard(data) {
         summaryStats.innerHTML = '';
         dashboardGrid.innerHTML = '';
@@ -697,70 +820,7 @@
         const penetration = data.penetration_detection || {};
         const topology = data.topology_validation || {};
 
-        const scoreValue = safeNumber(scoreData.total_score);
-        compositeScoreCard.style.display = 'grid';
-        const displayScore = scoreValue !== null ? scoreValue : 0;
-        compositeScoreValue.textContent = scoreValue !== null ? displayScore.toFixed(1).replace(/\.0$/, '') : '--';
-
-        let levelText = '等待資料';
-        if (scoreValue !== null) {
-            if (displayScore >= 90) levelText = '卓越';
-            else if (displayScore >= 75) levelText = '良好';
-            else if (displayScore >= 60) levelText = '可接受';
-            else levelText = '需改善';
-            compositeScoreProgress.style.width = `${clamp(displayScore, 0, 100)}%`;
-        } else {
-            compositeScoreProgress.style.width = '0%';
-        }
-        compositeScoreLevel.textContent = levelText;
-
-        const deductionsMap = {
-            'ground_plane': { label: '地面一致性', desc: '左右腳踝高度差偏大。' },
-            'penetration': { label: '穿透檢測', desc: '偵測到地面穿透事件。' },
-            'topology': { label: '拓撲結構', desc: '骨架拓撲關係異常。' }
-        };
-
-        let issuesHTML = '';
-        let hasIssues = false;
-        if (scoreData.deductions) {
-            for (const [key, points] of Object.entries(scoreData.deductions)) {
-                if (typeof points === 'number' && points > 0) {
-                    hasIssues = true;
-                    const info = deductionsMap[key] || { label: key, desc: '檢測項目' };
-                    issuesHTML += `
-                        <div class="score-detail-item">
-                            <div>
-                                <div class="score-detail-label">${info.label}</div>
-                                <div class="score-detail-desc">${info.desc}</div>
-                            </div>
-                            <div class="score-detail-value">
-                                <span class="impact-negative">-${points.toFixed(1)} 分</span>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        if (issuesHTML === '') {
-            const label = scoreValue === null ? '等待資料' : '完美表現';
-            const desc = scoreValue === null ? '載入 JSON 後顯示扣分細節。' : '未檢測到扣分項目。';
-            issuesHTML = `
-                <div class="score-detail-item score-empty">
-                    <div class="score-detail-label">${label}</div>
-                    <div class="score-detail-desc">${desc}</div>
-                </div>
-            `;
-        }
-
-        if (scoreValue === null) {
-            compositeScoreSummary.textContent = '載入資料後會自動計算綜合評分。';
-        } else if (!hasIssues) {
-            compositeScoreSummary.textContent = '綜合表現穩定，暫無異常扣分。';
-        } else {
-            compositeScoreSummary.textContent = '偵測到異常，請檢視扣分細節。';
-        }
-        compositeScoreDetails.innerHTML = issuesHTML;
+        renderCompositeScoreCard(calculateCompositeScoreStep5(data));
 
         const summaryItems = [
             { label: '地面一致性 (Ground)', value: `${formatMetric(ground.mean_diff_mm, ' mm')}`, sub: ground.assessment || '尚無評估' },

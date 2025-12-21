@@ -576,9 +576,9 @@
         reader.onload = function(e) {
             try {
                 let jsonString = e.target.result;
-                jsonString = jsonString.replace(/:\s*NaN/g, ': null');
-                jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
-                jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
+                jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
                 
                 const data = JSON.parse(jsonString);
                 renderDashboard(data);
@@ -604,9 +604,9 @@
                 })
                 .then(text => {
                     let jsonString = text;
-                    jsonString = jsonString.replace(/:\s*NaN/g, ': null');
-                    jsonString = jsonString.replace(/:\s*Infinity/g, ': null');
-                    jsonString = jsonString.replace(/:\s*-Infinity/g, ': null');
+                    jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
                     
                     const data = JSON.parse(jsonString);
                     renderDashboard(data);
@@ -660,93 +660,121 @@
         return Math.max(min, Math.min(max, value));
     }
 
-    function calculateCompositeScoreStep4(viewData, metrics = {}) {
-        const kinematics = viewData.motion_kinematics || {};
-        const jointAngles = viewData.joint_angles || {};
-        const torso = viewData.torso_stability || {};
-        const gravity = viewData.gravity_compliance || {};
-        const contact = viewData.ball_racket_contact || {};
-        const continuity = viewData.motion_continuity || {};
+    function calculateCompositeScoreStep4(data) {
+        if (!data) return null;
 
-        if (!Object.keys(kinematics).length && !Object.keys(jointAngles).length) {
-            return null;
+        // 如果後端已經計算了詳細的分數結構，直接使用後端的結果
+        if (data.overall_summary && data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
+            const qs = data.overall_summary.quality_score;
+            const breakdown = qs.deductions.map(d => ({
+                label: d.reason.split('(')[0].trim(),
+                value: d.reason.match(/\((.*?)\)/) ? d.reason.match(/\((.*?)\)/)[1] : '',
+                detail: d.reason,
+                impact: d.points
+            }));
+            
+            return {
+                score: qs.score,
+                level: qs.level,
+                summary: breakdown.length > 0 
+                    ? `主要扣分項目: ${breakdown[0].detail}` 
+                    : '整體動作穩定流暢，符合物理運動邏輯。',
+                breakdown: breakdown
+            };
         }
 
+        // Fallback: 前端計算邏輯
         let score = 100;
-        const breakdown = [];
-        const maxSpeed = metrics.maxSpeed || 0;
-        const abnormalAngles = metrics.abnormalAngles || 0;
-        const continuityJumps = metrics.continuityJumps || 0;
+        let deductions = [];
+
+        // Extract metrics
+        const kinematics = data.motion_kinematics || {};
+        const angles = data.joint_angles || {};
+        const continuity = data.motion_continuity || {};
+        const gravity = data.gravity_compliance || {};
+        const torso = data.torso_stability || {};
+
+        // Metric 1: Unreasonable Speed
+        let speedIssues = 0;
+        Object.values(kinematics).forEach(k => speedIssues += (k.unreasonable_speed_count || 0));
+        if (speedIssues > 0) {
+            const penalty = Math.min(30, speedIssues * 2);
+            score -= penalty;
+            deductions.push({
+                label: '速度異常',
+                value: `${speedIssues} 次`,
+                detail: `檢測到 ${speedIssues} 次速度超出合理範圍`,
+                impact: penalty
+            });
+        }
+
+        // Metric 2: Abnormal Angles
+        let angleIssues = 0;
+        Object.values(angles).forEach(a => angleIssues += (a.abnormal_count || 0));
+        if (angleIssues > 0) {
+            const penalty = Math.min(30, angleIssues * 2);
+            score -= penalty;
+            deductions.push({
+                label: '角度異常',
+                value: `${angleIssues} 次`,
+                detail: `檢測到 ${angleIssues} 次關節角度超出人體極限`,
+                impact: penalty
+            });
+        }
+
+        // Metric 3: Continuity Jumps
+        const jumps = continuity.total_jumps || 0;
+        if (jumps > 0) {
+            const penalty = Math.min(40, jumps * 5);
+            score -= penalty;
+            deductions.push({
+                label: '軌跡跳躍',
+                value: `${jumps} 次`,
+                detail: `檢測到 ${jumps} 次軌跡不連續跳躍`,
+                impact: penalty
+            });
+        }
+
+        // Metric 4: Gravity Compliance
+        if (gravity.assessment && !gravity.assessment.includes('[OK]')) {
+            const penalty = 10;
+            score -= penalty;
+            deductions.push({
+                label: '重力異常',
+                value: '偏差過大',
+                detail: '球體飛行軌跡不符合重力加速度',
+                impact: penalty
+            });
+        }
         
-        const register = (label, value, detail, penalty) => {
-            const safePenalty = penalty > 0 && Number.isFinite(penalty) ? penalty : 0;
-            if (safePenalty > 0) score -= safePenalty;
-            breakdown.push({ label, value, detail, impact: safePenalty });
+        // Metric 5: Torso Stability
+        if (torso.assessment && !torso.assessment.includes('[OK]')) {
+             const penalty = 5;
+             score -= penalty;
+             deductions.push({
+                 label: '軀幹晃動',
+                 value: '不穩定',
+                 detail: '軀幹中心點位移過大',
+                 impact: penalty
+             });
+        }
+
+        score = Math.max(0, Math.round(score));
+        
+        let level = 'Excellent';
+        if (score < 60) level = 'Poor';
+        else if (score < 80) level = 'Average';
+        else if (score < 90) level = 'Good';
+
+        return {
+            score: score,
+            level: level,
+            summary: deductions.length > 0 ? `主要扣分項目: ${deductions[0].label}` : '整體動作符合物理邏輯，表現優異。',
+            breakdown: deductions
         };
-        
-        // ** NEW: Continuity Jumps are a major penalty **
-        if (continuityJumps > 0) {
-            const ded = clamp(5 + continuityJumps * 4, 0, 40);
-            register('軌跡跳躍', `${continuityJumps} 次`, '追蹤不連續，嚴重影響品質', ded);
-        }
-
-        if (maxSpeed > 60) {
-            const ded = clamp((maxSpeed - 60) * 1.2, 0, 22);
-            register('速度峰值', `${maxSpeed.toFixed(1)} m/s`, '峰值偏高', ded);
-        } else if (maxSpeed > 45) {
-            const ded = clamp((maxSpeed - 45) * 0.6, 0, 12);
-            register('速度峰值', `${maxSpeed.toFixed(1)} m/s`, '峰值需留意', ded);
-        }
-
-        if (abnormalAngles > 0) {
-            const ded = clamp(2 + abnormalAngles * 0.2, 0, 25);
-            register('角度異常', `${abnormalAngles} 幀`, '超出合理範圍', ded);
-        }
-
-        const deviationRatio = (gravity || {}).deviation_ratio || 0;
-        if (deviationRatio > 0.2) {
-            register('重力偏差', `${(deviationRatio*100).toFixed(1)}%`, '偏差超過 20%', 15);
-        } else if (deviationRatio > 0.1) {
-            register('重力偏差', `${(deviationRatio*100).toFixed(1)}%`, '偏差介於 10-20%', 8);
-        } else if (gravity && gravity.assessment && gravity.assessment.includes('[!]')) {
-            register('重力檢查', '異常', gravity.assessment, 6);
-        }
-
-        if (typeof (torso || {}).std_displacement_mm === 'number') {
-            const torsoStd = torso.std_displacement_mm;
-            if (torsoStd > 30) {
-                register('軀幹穩定性', `${torsoStd.toFixed(1)} mm`, '位移標準差偏大', 10);
-            } else if (torsoStd > 20) {
-                 register('軀幹穩定性', `${torsoStd.toFixed(1)} mm`, '位移波動較大', 6);
-            }
-        }
-
-        if ((contact || {}).total_frames_analyzed) {
-            if (!contact.contact_count) {
-                register('擊球檢測', '未觸發', '未偵測到球拍接觸', 6);
-            } else if (typeof contact.min_distance_mm === 'number' && contact.min_distance_mm > 230) {
-                const ded = clamp((contact.min_distance_mm - 200) * 0.1, 0, 10);
-                register('擊球距離', `${contact.min_distance_mm.toFixed(0)} mm`, '最小距離偏大', ded);
-            }
-        }
-        
-        score = clamp(score, 0, 100);
-        let level = '需改善 (Poor)';
-        if (score >= 90) level = '卓越 (Excellent)';
-        else if (score >= 75) level = '良好 (Good)';
-        else if (score >= 60) level = '待觀察 (Watch)';
-
-        const leading = breakdown.filter(i => i.impact > 0).sort((a,b) => b.impact - a.impact)[0];
-        const summaryText = leading
-            ? `主要扣分來自「${leading.label}」：${leading.value} 導致 -${leading.impact.toFixed(1)} 分。`
-            : '整體動作穩定流暢，維持現有訓練即可。';
-
-
-        return { score, level, summary: summaryText, breakdown };
     }
 
-    function renderCompositeScoreCard(viewData, metrics) {
-        const result = calculateCompositeScoreStep4(viewData, metrics);
+    function renderCompositeScoreCard(result) {
         if (!result) {
             compositeScoreCard.style.display = 'none';
             return;
@@ -758,7 +786,7 @@
         compositeScoreProgressEl.style.width = `${result.score}%`;
         compositeScoreSummaryEl.textContent = result.summary;
         
-        const deductions = (result.breakdown || []).filter(item => item.impact > 0).sort((a, b) => b.impact - a.impact);
+        const deductions = (result.breakdown || []).filter(item => item.impact > 0);
         if (deductions.length > 0) {
             compositeScoreDetailsEl.innerHTML = deductions.map(item => `
                 <div class="score-detail-item">
@@ -785,6 +813,14 @@
     function renderDashboard(data) {
         summaryStats.innerHTML = '';
         dashboardGrid.innerHTML = '';
+        
+        // Cleanup existing charts
+        Object.keys(charts).forEach(id => {
+            if (charts[id]) {
+                charts[id].destroy();
+            }
+        });
+        charts = {};
         
         // --- 1. Summary Stats ---
         const kinematics = data.motion_kinematics || {};
@@ -833,7 +869,7 @@
             </div>
         `).join('');
         
-        renderCompositeScoreCard(data, { maxSpeed, abnormalAngles, continuityJumps });
+        renderCompositeScoreCard(calculateCompositeScoreStep4(data));
 
         // --- 2. Define Charts ---
         const createOptions = (keys, labelFn = k => k) => [

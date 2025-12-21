@@ -599,7 +599,7 @@
     <script>
         window.OFFLINE_DATA = {
   "metadata": {
-    "analysis_time": "2025-12-12T22:56:13.866242",
+    "analysis_time": "2025-12-21T17:26:22.459633",
     "source_file": "data/trajectory__new/tsung__19_45(3D_trajectory_smoothed).json",
     "total_frames": 141,
     "total_keypoints": 18,
@@ -31138,6 +31138,8 @@
 
     const fileInput = document.getElementById('fileInput');
     const dashboardGrid = document.getElementById('dashboardGrid');
+    
+    let charts = {}; // Store chart instances globally
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -31146,10 +31148,16 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const data = JSON.parse(e.target.result);
+                let jsonString = e.target.result;
+                // Enhanced NaN/Infinity handling
+                jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
+                
+                const data = JSON.parse(jsonString);
                 renderDashboard(data);
             } catch (error) {
-                alert('解析 JSON 失敗，請確認檔案格式正確。');
+                alert('解析 JSON 失敗，請確認檔案格式正確。\n' + error.message);
                 console.error(error);
             }
         };
@@ -31166,9 +31174,14 @@
             fetch(src)
                 .then(response => {
                     if (!response.ok) throw new Error(`Network response was not ok (${response.status} ${response.statusText})`);
-                    return response.json();
+                    return response.text();
                 })
-                .then(data => {
+                .then(text => {
+                    let jsonString = text;
+                    jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+                    jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
+                    const data = JSON.parse(jsonString);
                     renderDashboard(data);
                 })
                 .catch(err => {
@@ -31290,6 +31303,26 @@
     function calculateCompositeScoreStep1(data) {
         if (!data || !data.global_stats) return null;
 
+        // 如果後端已經計算了詳細的分數結構，直接使用後端的結果
+        if (data.overall_summary && data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
+            const qs = data.overall_summary.quality_score;
+            const breakdown = qs.deductions.map(d => ({
+                label: d.reason.split('(')[0].trim(),
+                value: d.reason.match(/\((.*?)\)/) ? d.reason.match(/\((.*?)\)/)[1] : '',
+                detail: d.reason,
+                impact: d.points
+            }));
+            
+            return {
+                score: qs.score,
+                level: qs.level,
+                summary: breakdown.length > 0 
+                    ? `主要扣分項目: ${breakdown[0].detail}` 
+                    : '檢測結果優良，無顯著誤差。',
+                breakdown: breakdown
+            };
+        }
+
         let workingScore = 100;
         const breakdown = [];
         const stats = data.global_stats;
@@ -31353,6 +31386,14 @@
     }
 
     function renderDashboard(data) {
+        // Cleanup existing charts
+        Object.keys(charts).forEach(id => {
+            if (charts[id]) {
+                charts[id].destroy();
+            }
+        });
+        charts = {};
+
         dashboardGrid.innerHTML = ''; // Clear previous charts
         
         // --- 1. Populate Summary Stats ---
@@ -31659,7 +31700,7 @@
         });
 
         // Store chart instances
-        const charts = {};
+        // charts is global now
 
         // --- Chart 2: Temporal Stability ---
         function updateChart2(view) {

@@ -58,96 +58,106 @@
         /* Layout Grid */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 24px;
+            /* 調整左右欄位比例: 350px (左側固定) 1fr (右側自動) 或改為 1fr 3fr (比例) */
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
             align-items: start;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1200px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
         }
 
         .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: var(--glass-shadow);
+            background: rgba(20, 20, 20, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .card-title {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.25rem;
+            font-weight: 700;
             color: var(--text-main);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }
 
         /* New Step Badge Style */
         .step-badge {
-            font-size: 0.7rem;
-            font-weight: 700;
+            font-size: 0.75rem;
+            font-weight: 800;
             letter-spacing: 0.1em;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: rgba(99, 102, 241, 0.1);
-            color: #818cf8;
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
             text-transform: uppercase;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.1);
         }
 
-        .form-group { margin-bottom: 16px; }
+        .form-group { margin-bottom: 20px; }
         
         label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             color: var(--text-sub);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 500;
         }
 
-        select, textarea {
+        select, textarea, input[type="text"] {
             width: 100%;
-            padding: 10px 14px;
+            padding: 12px 16px;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--card-border);
-            border-radius: 10px;
+            border-radius: 12px;
             color: var(--text-main);
             font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             box-sizing: border-box;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }
 
-        select:focus, textarea:focus {
+        select:focus, textarea:focus, input[type="text"]:focus {
             outline: none;
             border-color: var(--accent-primary);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
 
         textarea {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            line-height: 1.4;
+            font-size: 0.85rem;
+            line-height: 1.5;
         }
 
         .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 500;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
             font-size: 0.95rem;
             cursor: pointer;
             transition: all 0.2s;
@@ -155,41 +165,150 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
             text-decoration: none;
+            letter-spacing: 0.02em;
         }
 
         .btn-primary {
             background: var(--accent-gradient);
             color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
         
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:hover { 
+            opacity: 0.95; 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
 
         .btn-secondary {
             background: rgba(255, 255, 255, 0.05);
             color: var(--text-main);
             border-color: var(--card-border);
-            padding: 6px 12px;
-            font-size: 0.85rem;
         }
 
-        .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-secondary:hover { 
+            background: rgba(255, 255, 255, 0.1); 
+            border-color: rgba(255, 255, 255, 0.2);
+        }
 
         .btn-success {
-            background: rgba(52, 211, 153, 0.1);
+            background: rgba(52, 211, 153, 0.15);
             color: #34d399;
-            border: 1px solid rgba(52, 211, 153, 0.2);
+            border: 1px solid rgba(52, 211, 153, 0.3);
         }
 
-        .btn-success:hover { background: rgba(52, 211, 153, 0.2); }
+        .btn-success:hover { 
+            background: rgba(52, 211, 153, 0.25); 
+            box-shadow: 0 4px 12px rgba(52, 211, 153, 0.2);
+        }
+
+        /* Overview Grid Styles */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+        }
+
+        .step-summary-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-summary-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            width: 100%;
+            justify-content: flex-start;
+        }
+        
+        .step-icon { font-size: 1.1rem; opacity: 0.8; }
+
+        .step-score-container {
+            text-align: center;
+            margin: 4px 0;
+            width: 100%;
+        }
+
+        .step-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1;
+            margin-bottom: 6px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            opacity: 0.7;
+        }
+
+        .step-status {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            border-radius: 99px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            width: 100%;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .badge-pending { background: rgba(255, 255, 255, 0.05); color: var(--text-sub); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .badge-running { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); animation: pulse 2s infinite; }
+        .badge-success { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+        .badge-warning { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
+        .badge-error { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
 
         .action-row {
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            border: 1px solid var(--card-border);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .action-row:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            transform: translateX(4px);
         }
 
         .action-header {
@@ -199,8 +318,31 @@
             margin-bottom: 12px;
         }
 
-        .action-title { font-weight: 600; font-size: 1rem; }
-        .action-desc { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 16px; }
+        .action-title { 
+            font-size: 1.1rem; 
+            font-weight: 700; 
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .action-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 18px;
+            background: var(--accent-secondary);
+            border-radius: 2px;
+        }
+
+        .action-desc { 
+            font-size: 0.95rem; 
+            color: var(--text-sub); 
+            margin-bottom: 24px; 
+            line-height: 1.6;
+            padding-left: 14px;
+        }
 
         .status-indicator {
             font-size: 0.85rem;
@@ -343,42 +485,78 @@
                         分析結果總覽
                     </div>
                 </div>
-                <div class="overview-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
+                <div class="overview-grid">
                     <!-- Step 1 -->
-                    <div class="overview-item" id="overview-step1" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 1</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step1">
+                        <div class="step-header">
+                            <span class="step-icon">📐</span>
+                            <span class="step-name">Step 1</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Reprojection</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                     <!-- Step 2 -->
-                    <div class="overview-item" id="overview-step2" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 2</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step2">
+                        <div class="step-header">
+                            <span class="step-icon">🦴</span>
+                            <span class="step-name">Step 2</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Bone Consistency</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                     <!-- Step 3 -->
-                    <div class="overview-item" id="overview-step3" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 3</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step3">
+                        <div class="step-header">
+                            <span class="step-icon">🌊</span>
+                            <span class="step-name">Step 3</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Depth Logic</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                     <!-- Step 4 -->
-                    <div class="overview-item" id="overview-step4" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 4</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step4">
+                        <div class="step-header">
+                            <span class="step-icon">⚡</span>
+                            <span class="step-name">Step 4</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Physical Motion</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                     <!-- Step 5 -->
-                    <div class="overview-item" id="overview-step5" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 5</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step5">
+                        <div class="step-header">
+                            <span class="step-icon">🧊</span>
+                            <span class="step-name">Step 5</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Spatial Consistency</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                     <!-- Step 6 -->
-                    <div class="overview-item" id="overview-step6" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px;">Step 6</div>
-                        <div class="score" style="font-size: 1.2rem; font-weight: 700;">--</div>
-                        <div class="status" style="font-size: 0.7rem;">Pending</div>
+                    <div class="step-summary-card" id="overview-step6">
+                        <div class="step-header">
+                            <span class="step-icon">⏱️</span>
+                            <span class="step-name">Step 6</span>
+                        </div>
+                        <div class="step-score-container">
+                            <div class="step-score">--</div>
+                            <div class="step-label">Time Smoothness</div>
+                        </div>
+                        <div class="step-status badge-pending">Pending</div>
                     </div>
                 </div>
             </div>
@@ -414,10 +592,10 @@
                             執行分析
                         </button>
                         <a id="btn-view-step1" class="btn btn-success view-btn" target="_blank">
-                            查看報告 ↗
+                            檢視報告
                         </a>
                         <button id="btn-download-step1" class="btn btn-secondary" style="display:none;" onclick="downloadReport(1)">
-                            📥 下載離線報告
+                            下載離線報告
                         </button>
                         <div id="status-step1" class="status-indicator">
                             <div class="spinner"></div> <span>執行中...</span>
@@ -437,10 +615,10 @@
                             執行分析
                         </button>
                         <a id="btn-view-step2" class="btn btn-success view-btn" target="_blank">
-                            查看報告 ↗
+                            檢視報告
                         </a>
                         <button id="btn-download-step2" class="btn btn-secondary" style="display:none;" onclick="downloadReport(2)">
-                            📥 下載離線報告
+                            下載離線報告
                         </button>
                         <div id="status-step2" class="status-indicator">
                             <div class="spinner"></div> <span>執行中...</span>
@@ -746,12 +924,18 @@
         const btn = document.getElementById(`btn-run-step${step}`);
         const status = document.getElementById(`status-step${step}`);
         const viewBtn = document.getElementById(`btn-view-step${step}`);
+        const overviewStatus = document.querySelector(`#overview-step${step} .step-status`);
 
         if (isRunning) {
             btn.disabled = true;
             btn.textContent = '處理中...';
             status.classList.add('visible');
             viewBtn.style.display = 'none';
+            
+            if(overviewStatus) {
+                overviewStatus.textContent = 'Running';
+                overviewStatus.className = 'step-status badge-running';
+            }
         } else {
             btn.disabled = false;
             btn.textContent = '重新執行';
@@ -782,60 +966,180 @@
         updateOverview(step, resultFile);
     }
 
+    function calculateFallbackScore(step, data) {
+        let score = 100;
+        let level = 'Excellent';
+        
+        // Helper to clamp
+        const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+
+        try {
+            if (step === 1) {
+                // Step 1: Reprojection Error
+                const stats = data.global_stats || {};
+                const mean = stats.overall_mean || 0;
+                if (mean > 2) score -= clamp((mean - 2) * 8, 0, 25);
+                
+                const q95 = Math.max(stats.side_95th || 0, stats['45_95th'] || 0);
+                if (q95 > 6) score -= clamp((q95 - 6) * 2.5, 0, 18);
+            } 
+            else if (step === 2) {
+                // Step 2: Bone Consistency
+                const summary = data.overall_summary || {};
+                const cv = summary.average_cv || summary.average_cv_percent || 0;
+                if (cv > 4) score -= clamp((cv - 4) * 2.2, 0, 22);
+                
+                const spikes = (data.spike_detection && data.spike_detection.total_spikes) || summary.total_spikes_detected || 0;
+                if (spikes > 0) score -= clamp(spikes * 2, 0, 20);
+            }
+            else if (step === 3) {
+                // Step 3: Depth Reasonableness
+                const summary = data.overall_summary || {};
+                const stats = data.overall_statistics || {};
+                const cv = summary.average_cv || stats.average_cv_percent || 0;
+                if (cv > 10) score -= 20;
+                else if (cv > 5) score -= 10;
+                
+                const logic = data.depth_logic_check || {};
+                if (logic.elbow_hyperextension && logic.elbow_hyperextension.rate > 0) score -= 15;
+                if (logic.knee_hyperextension && logic.knee_hyperextension.rate > 0) score -= 15;
+            }
+            else if (step === 4) {
+                // Step 4: Physical Motion
+                const kinematics = data.motion_kinematics || {};
+                let speedIssues = 0;
+                Object.values(kinematics).forEach(k => speedIssues += (k.unreasonable_speed_count || 0));
+                if (speedIssues > 0) score -= Math.min(30, speedIssues * 2);
+                
+                const angles = data.joint_angles || {};
+                let angleIssues = 0;
+                Object.values(angles).forEach(a => angleIssues += (a.abnormal_count || 0));
+                if (angleIssues > 0) score -= Math.min(30, angleIssues * 2);
+            }
+            else if (step === 5) {
+                // Step 5: Spatial Consistency
+                const ground = data.ground_plane_consistency || {};
+                const meanDiff = ground.mean_diff_mm || 0;
+                if (meanDiff > 100) score -= Math.min(30, (meanDiff - 100) * 0.2);
+                
+                const pen = data.penetration_detection || {};
+                if (pen.penetration_rate_percent > 0) score -= Math.min(40, pen.penetration_rate_percent * 2);
+            }
+            else if (step === 6) {
+                // Step 6: Time Smoothness
+                const jumps = data.jump_anomalies || {};
+                const totalJumps = Object.values(jumps).reduce((sum, item) => sum + (item.large_jump_count || 0), 0);
+                if (totalJumps > 0) score -= Math.min(40, totalJumps * 8);
+                
+                const accel = data.acceleration_anomalies || {};
+                const totalAccel = Object.values(accel).reduce((sum, item) => sum + (item.outlier_count || 0), 0);
+                if (totalAccel > 0) score -= Math.min(30, totalAccel * 1.5);
+            }
+        } catch (e) {
+            console.error("Fallback calculation error", e);
+            return null;
+        }
+
+        score = Math.max(0, Math.round(score));
+        
+        if (score >= 90) level = 'Excellent';
+        else if (score >= 80) level = 'Good';
+        else if (score >= 60) level = 'Fair';
+        else level = 'Poor';
+
+        return { score, level };
+    }
+
     async function updateOverview(step, resultFile) {
         const item = document.getElementById(`overview-step${step}`);
-        const scoreEl = item.querySelector('.score');
-        const statusEl = item.querySelector('.status');
+        const scoreEl = item.querySelector('.step-score');
+        const statusEl = item.querySelector('.step-status');
 
         try {
             // Fetch the result JSON to get the score
             // Since resultFile is a relative path like 'data/...', we can fetch it directly
             const response = await fetch(resultFile);
             if (!response.ok) throw new Error('Fetch failed');
-            const data = await response.json();
+            
+            // Robust Parsing for NaN/Infinity (Consistent with Step 1-6)
+            const text = await response.text();
+            let jsonString = text;
+            jsonString = jsonString.replace(/:\s*NaN\b/g, ': null');
+            jsonString = jsonString.replace(/:\s*Infinity\b/g, ': null');
+            jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
+            const data = JSON.parse(jsonString);
 
             let score = '--';
             let level = 'Unknown';
-            let color = '#9ca3af'; // Default gray
-
-            // Try to extract score based on standard structure
-            if (data.score && typeof data.score.total_score !== 'undefined') {
-                score = data.score.total_score.toFixed(1);
-                level = data.score.level || '';
-            } 
-            // Fallback for Step 1 (Reprojection Error might not have a "score" but "mean_error")
-            else if (step === 1 && data.summary && data.summary.mean_error_pixels) {
-                score = data.summary.mean_error_pixels.toFixed(2) + ' px';
-                level = 'Mean Error';
+            
+            // 1. Standardized Backend Score (Priority)
+            if (data.overall_summary && data.overall_summary.quality_score) {
+                const qs = data.overall_summary.quality_score;
+                score = typeof qs.score === 'number' ? qs.score.toFixed(1) : qs.score;
+                level = qs.level || 'Unknown';
             }
-
-            // Determine color based on score (rough heuristic)
-            if (score !== '--') {
-                const numScore = parseFloat(score);
-                if (step === 1) {
-                    // Lower is better for error
-                    if (numScore < 5) color = '#34d399'; // Green
-                    else if (numScore < 10) color = '#fbbf24'; // Yellow
-                    else color = '#f87171'; // Red
-                } else {
-                    // Higher is better for score (0-100)
-                    if (numScore >= 80) color = '#34d399';
-                    else if (numScore >= 60) color = '#fbbf24';
-                    else color = '#f87171';
+            // 2. Frontend Fallback Calculation (New)
+            else {
+                const fallback = calculateFallbackScore(step, data);
+                if (fallback) {
+                    score = fallback.score.toFixed(1);
+                    level = fallback.level;
                 }
+                // 3. Legacy Fallback for Step 1 (Mean Error)
+                else if (step === 1 && data.global_stats && typeof data.global_stats.overall_mean === 'number') {
+                     score = data.global_stats.overall_mean.toFixed(2) + ' px';
+                     level = data.global_stats.quality_level || 'Mean Error';
+                }
+                // 4. Legacy Fallback (Generic)
+                else if (data.score && typeof data.score.total_score !== 'undefined') {
+                    score = data.score.total_score.toFixed(1);
+                    level = data.score.level || '';
+                } 
             }
 
             scoreEl.textContent = score;
-            scoreEl.style.color = color;
             statusEl.textContent = level;
-            statusEl.style.color = color;
-            item.style.border = `1px solid ${color}`;
-            item.style.background = `rgba(${color === '#34d399' ? '52, 211, 153' : color === '#fbbf24' ? '251, 191, 36' : '248, 113, 113'}, 0.1)`;
+            
+            // Reset classes
+            statusEl.className = 'step-status';
+            item.style.borderColor = '';
+
+            // Determine color based on score
+            if (score !== '--') {
+                const isPixelMetric = typeof score === 'string' && score.includes('px');
+                const numScore = parseFloat(score);
+                
+                let isGood = false;
+                let isAvg = false;
+
+                if (step === 1 && isPixelMetric) {
+                    // Lower is better for error (px)
+                    if (numScore < 5) isGood = true;
+                    else if (numScore < 10) isAvg = true;
+                } else {
+                    // Higher is better for score (0-100)
+                    if (numScore >= 80) isGood = true;
+                    else if (numScore >= 60) isAvg = true;
+                }
+
+                if (isGood) {
+                    statusEl.classList.add('badge-success');
+                    item.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+                } else if (isAvg) {
+                    statusEl.classList.add('badge-warning');
+                    item.style.borderColor = 'rgba(251, 191, 36, 0.3)';
+                } else {
+                    statusEl.classList.add('badge-error');
+                    item.style.borderColor = 'rgba(248, 113, 113, 0.3)';
+                }
+            } else {
+                statusEl.classList.add('badge-pending');
+            }
 
         } catch (e) {
             console.error(`Error updating overview for step ${step}:`, e);
             statusEl.textContent = 'Error';
-            statusEl.style.color = '#f87171';
+            statusEl.className = 'step-status badge-error';
         }
     }
 
@@ -1022,12 +1326,15 @@
             
             // Reset Overview
             if (overviewItem) {
-                overviewItem.querySelector('.score').textContent = '--';
-                overviewItem.querySelector('.score').style.color = '';
-                overviewItem.querySelector('.status').textContent = 'Pending';
-                overviewItem.querySelector('.status').style.color = '';
-                overviewItem.style.border = '';
-                overviewItem.style.background = 'rgba(255,255,255,0.05)';
+                const scoreEl = overviewItem.querySelector('.step-score');
+                const statusEl = overviewItem.querySelector('.step-status');
+                
+                if (scoreEl) scoreEl.textContent = '--';
+                if (statusEl) {
+                    statusEl.textContent = 'Pending';
+                    statusEl.className = 'step-status badge-pending';
+                }
+                overviewItem.style.borderColor = '';
             }
             
             window[`step${i}Result`] = null;

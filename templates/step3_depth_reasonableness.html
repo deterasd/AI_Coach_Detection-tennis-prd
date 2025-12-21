@@ -727,10 +727,10 @@
     }
 
     function calculateCompositeScoreStep3(data) {
-        if (!data || !data.overall_summary) return null;
+        if (!data) return null;
 
         // 如果後端已經計算了詳細的分數結構，直接使用後端的結果
-        if (data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
+        if (data.overall_summary && data.overall_summary.quality_score && data.overall_summary.quality_score.deductions) {
             const qs = data.overall_summary.quality_score;
             const breakdown = qs.deductions.map(d => ({
                 label: d.reason.split('(')[0].trim(), // 簡化標籤
@@ -749,18 +749,93 @@
             };
         }
 
-        // Fallback: 前端計算 (舊邏輯，僅作備援)
-        let computedScore = 100;
-        const breakdown = [];
-        // ... (省略舊邏輯以節省空間，因為我們現在主要依賴後端計算) ...
-        return { score: 0, level: 'Error', summary: '無法讀取評分數據', breakdown: [] };
+        // Fallback: 前端計算邏輯
+        let score = 100;
+        let deductions = [];
+
+        const summary = data.overall_summary || {};
+        const logic = data.depth_logic_check || {};
+        const temporal = data.temporal_stability || {};
+        const stats = data.overall_statistics || {};
+
+        // Metric 1: Stability (CV)
+        const cv = summary.average_cv || stats.average_cv_percent || 0;
+        if (cv > 10) {
+            const penalty = 20;
+            score -= penalty;
+            deductions.push({
+                label: '深度不穩定',
+                value: `CV ${cv.toFixed(1)}%`,
+                detail: '深度變異係數過高，數據雜訊大',
+                impact: penalty
+            });
+        } else if (cv > 5) {
+            const penalty = 10;
+            score -= penalty;
+            deductions.push({
+                label: '深度略有雜訊',
+                value: `CV ${cv.toFixed(1)}%`,
+                detail: '深度變異係數稍高',
+                impact: penalty
+            });
+        }
+
+        // Metric 2: Logic Violations
+        let logicPenalty = 0;
+        if (logic.elbow_hyperextension && logic.elbow_hyperextension.rate > 0) {
+            const p = 15;
+            logicPenalty += p;
+            deductions.push({
+                label: '手肘反向彎曲',
+                value: `${logic.elbow_hyperextension.rate.toFixed(1)}%`,
+                detail: '檢測到手肘深度異常反折',
+                impact: p
+            });
+        }
+        if (logic.knee_hyperextension && logic.knee_hyperextension.rate > 0) {
+            const p = 15;
+            logicPenalty += p;
+            deductions.push({
+                label: '膝蓋反向彎曲',
+                value: `${logic.knee_hyperextension.rate.toFixed(1)}%`,
+                detail: '檢測到膝蓋深度異常反折',
+                impact: p
+            });
+        }
+        score -= logicPenalty;
+
+        // Metric 3: Temporal Instability
+        if (temporal.unstable_rate > 0) {
+            const penalty = 20;
+            score -= penalty;
+            deductions.push({
+                label: '時間軸跳動',
+                value: `${temporal.unstable_rate.toFixed(1)}%`,
+                detail: '深度在時間軸上出現劇烈跳動',
+                impact: penalty
+            });
+        }
+
+        score = Math.max(0, Math.round(score));
+        
+        let level = 'Excellent';
+        if (score < 60) level = 'Poor';
+        else if (score < 80) level = 'Average';
+        else if (score < 90) level = 'Good';
+
+        return {
+            score: score,
+            level: level,
+            summary: deductions.length > 0 ? `主要扣分項目: ${deductions[0].label}` : '整體深度合理，無顯著異常。',
+            breakdown: deductions
+        };
     }
 
     const fileInput = document.getElementById('fileInput');
     const dashboardGrid = document.getElementById('dashboardGrid');
     
     let fullAnalysisData = null; // Store full data for view switching
-    let chartInstances = {}; // Store chart instances by ID
+    let charts = {}; // Store chart instances by ID
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -779,7 +854,7 @@
                 jsonString = jsonString.replace(/\[\s*NaN\b/g, '[ null');
                 
                 const data = JSON.parse(jsonString);
-                handleDataLoad(data);
+                renderDashboard(data);
             } catch (error) {
                 alert('載入失敗：\n' + error.message);
                 console.error(error);
@@ -791,7 +866,7 @@
     // Auto-load from URL parameter or Offline Data
     if (window.OFFLINE_DATA) {
         try {
-            handleDataLoad(window.OFFLINE_DATA);
+            renderDashboard(window.OFFLINE_DATA);
         } catch (e) {
             console.error("Offline data load error:", e);
         }
@@ -811,7 +886,7 @@
                     jsonString = jsonString.replace(/:\s*-Infinity\b/g, ': null');
                     
                     const data = JSON.parse(jsonString);
-                    handleDataLoad(data);
+                    renderDashboard(data);
                 })
                 .catch(err => {
                     console.error('Error loading JSON from URL:', err);
@@ -820,7 +895,7 @@
         }
     }
 
-    function handleDataLoad(data) {
+    function renderDashboard(data) {
         if (!data) {
             throw new Error("JSON 數據為空");
         }
@@ -863,12 +938,12 @@
 
     function initializeDashboardStructure() {
         // Cleanup existing charts before removing canvas elements
-        Object.keys(chartInstances).forEach(id => {
-            if (chartInstances[id]) {
-                chartInstances[id].destroy();
+        Object.keys(charts).forEach(id => {
+            if (charts[id]) {
+                charts[id].destroy();
             }
         });
-        chartInstances = {};
+        charts = {};
 
         dashboardGrid.innerHTML = '';
         
@@ -1085,12 +1160,12 @@
 
     function updateChart1(data) {
         const ctx = document.getElementById('chart1');
-        if (chartInstances['chart1']) chartInstances['chart1'].destroy();
+        if (charts['chart1']) charts['chart1'].destroy();
         
         const depthStats = data.depth_range_analysis;
         const sortedKeys = Object.keys(depthStats).sort((a, b) => (depthStats[b].cv_percent || 0) - (depthStats[a].cv_percent || 0));
 
-        chartInstances['chart1'] = new Chart(ctx, {
+        charts['chart1'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: sortedKeys,
@@ -1116,12 +1191,12 @@
 
     function updateChartVelocity(data) {
         const ctx = document.getElementById('chart_velocity');
-        if (chartInstances['chart_velocity']) chartInstances['chart_velocity'].destroy();
+        if (charts['chart_velocity']) charts['chart_velocity'].destroy();
         
         const depthStats = data.depth_range_analysis;
         const sortedByGrad = Object.keys(depthStats).sort((a, b) => depthStats[b].mean_gradient_mm - depthStats[a].mean_gradient_mm);
         
-        chartInstances['chart_velocity'] = new Chart(ctx, {
+        charts['chart_velocity'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: sortedByGrad,
@@ -1142,7 +1217,7 @@
 
     function updateChart2(data) {
         const ctx = document.getElementById('chart2');
-        if (chartInstances['chart2']) chartInstances['chart2'].destroy();
+        if (charts['chart2']) charts['chart2'].destroy();
         
         const depthStats = data.depth_range_analysis;
         const sortedByZ = Object.keys(depthStats).sort((a, b) => depthStats[b].mean_z_mm - depthStats[a].mean_z_mm);
@@ -1171,7 +1246,7 @@
             }
         };
 
-        chartInstances['chart2'] = new Chart(ctx, {
+        charts['chart2'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: sortedByZ,
@@ -1208,7 +1283,7 @@
 
     function updateChartTemporal(data) {
         const ctx = document.getElementById('chart_temporal');
-        if (chartInstances['chart_temporal']) chartInstances['chart_temporal'].destroy();
+        if (charts['chart_temporal']) charts['chart_temporal'].destroy();
         
         const temporalStats = data.temporal_stability;
         if (!temporalStats || !temporalStats.series_data) return;
@@ -1217,7 +1292,7 @@
         const labels = seriesData.map((_, i) => i + 1);
         const threshold = temporalStats.threshold_mm || 50;
 
-        chartInstances['chart_temporal'] = new Chart(ctx, {
+        charts['chart_temporal'] = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
